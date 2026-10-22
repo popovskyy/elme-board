@@ -54,18 +54,25 @@ async function mergeNext() {
     if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
       throw new Error('Working tree has uncommitted changes. Commit or stash, then press Done again (or set mergeRequested).');
     }
-    try { git(['fetch', 'origin']); } catch { /* offline / no remote ok for local merge */ }
+    const hasOrigin = hasRemote('origin');
+    if (hasOrigin) {
+      try { git(['fetch', 'origin']); } catch { /* offline ok */ }
+    }
     git(['checkout', 'main']);
-    try { git(['pull', '--ff-only', 'origin', 'main']); } catch { /* local-only main */ }
+    if (hasOrigin) {
+      try { git(['pull', '--ff-only', 'origin', 'main']); } catch { /* diverge / offline */ }
+    }
     if (!existsBranch(t.branch)) throw new Error(`Branch \`${t.branch}\` not found on the PC.`);
     const msg = `Merge ${t.id}: ${t.title}`;
     git(['merge', '--no-ff', '-m', msg, t.branch]);
     let pushed = false;
-    try {
-      git(['push', 'origin', 'main']);
-      pushed = true;
-    } catch (e) {
-      warn(`merge ok locally, push failed: ${e.message || e}`);
+    if (hasOrigin) {
+      try {
+        git(['push', 'origin', 'main']);
+        pushed = true;
+      } catch (e) {
+        warn(`merge ok locally, push failed: ${e.message || e}`);
+      }
     }
     await patchTicket(t, {
       mergeRequested: false,
@@ -226,6 +233,10 @@ async function api(path, { method = 'GET', body } = {}) {
 }
 function git(args) { return execFileSync('git', args, { cwd: REPO }).toString(); }
 function existsBranch(b) { try { git(['rev-parse', '--verify', '--quiet', b]); return true; } catch { return false; } }
+function hasRemote(name) {
+  try { return git(['remote']).split('\n').map((s) => s.trim()).includes(name); }
+  catch { return false; }
+}
 function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').split('-').filter(Boolean).slice(0, 4).join('-'); }
 function warn(e) { console.warn(`runner: ${e.message || e}`); }
 function loadEnv(url) {
