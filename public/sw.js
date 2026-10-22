@@ -1,7 +1,6 @@
 /* Minimal service worker: cache the board shell so Add to Home Screen feels like an app. */
-const CACHE = 'elme-board-v1';
+const CACHE = 'elme-board-v2';
 const SHELL = [
-  '/board/index.html',
   '/board/db-shim.js',
   '/board/logic.js',
   '/manifest.webmanifest',
@@ -24,6 +23,19 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   // Never cache API — board data must be live.
   if (url.pathname.startsWith('/api/')) return;
+  // HTML always network-first so phone gets UI fixes without a hard cache wipe.
+  if (url.pathname.endsWith('.html') || url.pathname === '/board/' || url.pathname === '/board/index.html') {
+    event.respondWith(
+      fetch(event.request).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(event.request, copy));
+        }
+        return res;
+      }).catch(() => caches.match(event.request)),
+    );
+    return;
+  }
   if (url.pathname.startsWith('/board/') || url.pathname === '/manifest.webmanifest' || url.pathname.startsWith('/icons/')) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
@@ -34,7 +46,7 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         }).catch(() => cached);
-        return cached || fetchPromise;
+        return fetchPromise.catch(() => cached);
       }),
     );
   }

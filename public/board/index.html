@@ -414,11 +414,12 @@ function renderPcStatus() {
     ? (state.runnerStatus?.busyWith ? `PC online · ${state.runnerStatus.busyWith}` : 'PC online')
     : (q ? `PC offline · queued ${q}` : 'PC offline');
 }
-function preferredRunner(t) {
-  return t?.runner || state.pickRunner || 'claude';
+// UI choice wins over the ticket's saved runner (seed defaults everything to claude).
+function preferredRunner() {
+  return state.pickRunner || 'claude';
 }
-function runnerSeg(t) {
-  const cur = preferredRunner(t);
+function runnerSeg() {
+  const cur = preferredRunner();
   return `<div class="runner-pick"><div class="label">Run with</div><div class="seg" role="group" aria-label="Run with" id="runner-seg">
     <button type="button" data-runner="claude" aria-pressed="${cur === 'claude'}">Claude</button>
     <button type="button" data-runner="cursor" aria-pressed="${cur === 'cursor'}">Cursor</button>
@@ -582,7 +583,7 @@ function renderPanel() {
 function actions(t) {
   if (!state.canWrite) return '<p class="empty">Read only: changes are saved only for the board owner.</p>';
   const ux = t.kind === 'UX';
-  const pick = runnerSeg(t);
+  const pick = runnerSeg();
   const start = ux ? `<button class="btn primary" data-act="assign" data-h="qa">Send to QA</button>`
     : `<button class="btn primary" data-act="assign" data-h="${t.kind === 'BE' ? 'be' : 'fe'}">Start ${t.kind === 'BE' ? 'BE' : 'FE'}</button>
        <button class="btn" data-act="assign" data-h="${t.kind === 'BE' ? 'fe' : 'be'}">Start ${t.kind === 'BE' ? 'FE' : 'BE'}</button>`;
@@ -609,7 +610,7 @@ function wireActions(t) {
       try {
         b.disabled = true;
         const act = b.dataset.act;
-        const runner = preferredRunner(t);
+        const runner = preferredRunner();
         if (act === 'stop') {
           await window.boardStopRun(b.dataset.run);
           toast('Stop requested');
@@ -644,6 +645,9 @@ async function addLog(id, kind, text) {
 }
 function openPanel(id) {
   state.open = id; state.log = null;
+  const t0 = state.tickets.get(id);
+  // Ticket's saved runner wins when opening; otherwise keep last UI choice.
+  if (t0?.runner === 'claude' || t0?.runner === 'cursor') state.pickRunner = t0.runner;
   $('#panel').hidden = false; $('#scrim').hidden = false;
   logUnsub?.();
   logUnsub = db ? db.doc(`log/${id}`).onSnapshot((s) => { state.log = s.exists ? s.data() : null; renderPanel(); }, () => {}) : null;
@@ -664,7 +668,7 @@ document.addEventListener('drop', async (e) => {
   const to = col.dataset.status;
   if (!t || t.status === to || !state.canWrite) return;
   try {
-    const runner = preferredRunner(t);
+    const runner = preferredRunner();
     if (to === 'in_progress') await change(t, { ...assign(t, t.kind === 'BE' ? 'be' : 'fe'), runner }, `Roman started the ticket with the ${t.kind === 'BE' ? 'BE' : 'FE'} agent (${runner}).`, 'log');
     else if (to === 'in_qa') await change(t, { ...assign(t, 'qa'), runner }, `Roman sent the ticket to the QA agent (${runner}).`, 'log');
     else if (to === 'done') await change(t, done(t), 'Accepted after review.', 'log');
