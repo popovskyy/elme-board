@@ -2,8 +2,8 @@
 // Every function takes a ticket and returns a patch to merge into it.
 
 export const STATUSES = ['todo', 'in_progress', 'in_qa', 'review', 'done', 'blocked'];
-export const HOLDERS = ['fe', 'be', 'qa', 'roman', null];
-export const AGENTS = ['fe', 'be', 'qa', 'idea'];
+export const HOLDERS = ['fe', 'be', 'qa', 'idea', 'seo', 'roman', null];
+export const AGENTS = ['fe', 'be', 'qa', 'idea', 'seo'];
 const BUILDERS = ['fe', 'be', 'qa'];
 
 const now = () => Date.now();
@@ -118,6 +118,11 @@ export function buildFromIdeas(ticket) {
         holder,
         waiting: true,
         prev: null,
+        // A new round: last round's QA and merge state no longer describe the code.
+        qaVerdict: null,
+        qaChecks: (ticket.qaChecks || []).map(() => null),
+        mergedAt: null,
+        mergeError: null,
         updatedAt: now(),
     };
 }
@@ -127,6 +132,29 @@ export function ideasRestore(ticket) {
     if (ticket.holder !== 'idea') throw new Error('Ticket is not with the ideas agent');
     const prev = ticket.prev || { status: 'done', holder: null };
     return { status: prev.status, holder: prev.holder, waiting: false, prev: null, updatedAt: now() };
+}
+
+/**
+ * SEO agent plans the markup before the builder starts (or reviews a built page).
+ * `then` is where the ticket goes after the plan, e.g. assign(t, 'fe'); without it the ticket returns where it was.
+ */
+export function requestSeo(ticket, then = null) {
+    if (ticket.waiting) throw new Error('An agent is already on this ticket');
+    const next = then ? { status: then.status, holder: then.holder } : { status: ticket.status, holder: ticket.holder };
+    return { status: next.status, holder: 'seo', waiting: true, prev: next, updatedAt: now() };
+}
+
+/** SEO plan written. The ticket continues to the builder queued behind it, or goes back where it was. */
+export function seoDone(ticket) {
+    if (ticket.holder !== 'seo') throw new Error('Ticket is not with the SEO agent');
+    const prev = ticket.prev || { status: ticket.status, holder: null };
+    return {
+        status: prev.status,
+        holder: prev.holder,
+        waiting: BUILDERS.includes(prev.holder),
+        prev: null,
+        updatedAt: now(),
+    };
 }
 
 export function pickable(tickets) {

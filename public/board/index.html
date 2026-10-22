@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#F5F4EF">
+<meta name="theme-color" content="#E9EDE3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Elme Board">
@@ -42,7 +42,7 @@
 </svg>
 <title>Elme Board</title>
 <style>
-/* Elme storefront tokens: Karla + DM Serif, square corners, charcoal buttons. */
+/* Elme palette tuned for a tool: warm paper, sage band, olive actions, muted status fills that all read with charcoal text. */
 @font-face { font-family: Karla; src: url("/fonts/Karla-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: Karla; src: url("/fonts/Karla-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
 @font-face { font-family: Karla; src: url("/fonts/Karla-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
@@ -50,29 +50,29 @@
 @font-face { font-family: "DM Serif Display"; src: url("/fonts/DMSerifDisplay-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 :root {
   --bg: #F5F4EF;
-  --band: #FFFFFF;
+  --band: #E9EDE3;
   --surface: #FFFFFF;
-  --surface-2: #F8F8F8;
-  --line: #CAC9C9;
-  --fg: #3A3935;
-  --muted: #676F78;
-  --accent: #3A3935;
+  --surface-2: #F2F1EB;
+  --line: #DDDBD2;
+  --fg: #2F2E2A;
+  --muted: #6B6F66;
+  --accent: #55644A;
   --secondary: #ADBBA1;
   --on-accent: #FFFFFF;
-  --ink-on: #3A3935;
-  --st-todo: #E1DBD1;
-  --st-progress: #F2B20C;
-  --st-qa: #98A8BB;
-  --st-review: #68839C;
-  --st-blocked: #FF5942;
-  --st-done: #ADBBA1;
-  --h-fe: #ADBBA1;
-  --h-be: #98A8BB;
-  --h-qa: #D4C8B3;
-  --h-roman: #E1DBD1;
-  --shadow: none;
-  --warn-text: #D82C0D;
-  --ok-text: #677858;
+  --ink-on: #2F2E2A;
+  --st-todo: #E7E2D8;
+  --st-progress: #E9C873;
+  --st-qa: #C9D4DF;
+  --st-review: #A3B8C9;
+  --st-blocked: #E4A593;
+  --st-done: #BCCAAE;
+  --h-fe: #BCCAAE;
+  --h-be: #C9D4DF;
+  --h-qa: #E2D8C5;
+  --h-roman: #E9C873;
+  --shadow: 0 1px 2px rgb(47 46 42 / .05);
+  --warn-text: #9E3F2A;
+  --ok-text: #55644A;
   --font: Karla, ui-sans-serif, system-ui, sans-serif;
   --display: "DM Serif Display", Georgia, serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -121,7 +121,7 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .counters .counter[aria-pressed="true"] span { color: inherit; }
 .counter b { font-size: 17px; }
 .counter span { color: var(--muted); font-size: 13px; }
-.counter.alert { border-color: var(--st-blocked); background: color-mix(in srgb, var(--st-blocked) 22%, var(--surface)); }
+.counter.alert { border-color: var(--warn-text); background: color-mix(in srgb, var(--st-blocked) 30%, var(--surface)); }
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
 .tabs { display: flex; gap: 4px; }
 .tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 6px 12px; margin-right: 10px; color: var(--muted); font-weight: 700; letter-spacing: .01em; min-height: var(--tap); }
@@ -133,7 +133,13 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .seg button { border: 0; background: none; padding: 10px 14px; font-weight: 700; color: var(--muted); min-height: 44px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .seq { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 2.2em; display: inline-block; }
-.wavebar { display: flex; align-items: center; gap: 10px; margin-left: auto; font: 600 13px var(--font); color: var(--muted); }
+.wavebar { display: flex; align-items: center; gap: 10px; margin-left: auto; font: 600 13px var(--font); color: var(--muted); white-space: nowrap; }
+.more { border-top: 1px solid var(--line); padding-top: 10px; }
+.more > summary { cursor: pointer; font-weight: 700; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary::after { content: '+'; margin-left: auto; font-size: 18px; }
+.more[open] > summary::after { content: '–'; }
+.more[open] { display: grid; gap: 10px; }
 .wavebar .track { width: 120px; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
 .wavebar .fill { height: 100%; background: var(--accent); }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 0; font-size: 12px; font-weight: 700; letter-spacing: .02em; }
@@ -217,7 +223,7 @@ aside.panel {
 .ph .facts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; }
 .pb { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px 20px 24px; display: grid; gap: 20px; align-content: start; }
 .sec h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-.prose { max-width: 70ch; }
+.prose { max-width: 70ch; overflow-wrap: anywhere; }
 .prose p { margin: 0 0 8px; }
 .prose ul { margin: 0 0 8px; padding-left: 18px; }
 .prose code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border-radius: 4px; padding: 0 4px; }
@@ -231,16 +237,19 @@ aside.panel {
 .log li { border-left: 3px solid var(--lc, var(--line)); padding-left: 10px; }
 .log .lh { color: var(--muted); font-size: 12px; display: flex; gap: 8px; }
 .actions { display: grid; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.actions .question { background: color-mix(in srgb, var(--st-blocked) 22%, var(--surface)); border-left: 4px solid var(--warn-text); padding: 10px 14px; max-height: 40vh; overflow: auto; }
+.actions .check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--fg); }
+.actions .check input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); flex: none; }
+.actions .question h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--warn-text); }
 .actions .btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--fg); background: transparent; border-radius: 0; padding: 8px 24px; font-weight: 500; letter-spacing: .5px; min-height: 50px; line-height: 14px; }
 .btn:hover { background: var(--fg); color: var(--on-accent); }
-.btn .ico, .tabs button .ico, .seg button .ico, .counter .ico, .jump button .ico, .close .ico, .chip .ico { width: 16px; height: 16px; flex: none; }
+.tools-toggle .ico, .btn .ico, .tabs button .ico, .seg button .ico, .counter .ico, .jump button .ico, .close .ico, .chip .ico { width: 16px; height: 16px; flex: none; }
 .tabs button, .seg button, .jump button, .close { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .counter { gap: 8px; align-items: center; }
 .btn.primary, .btn.rework { background: var(--fg); border-color: var(--fg); color: var(--on-accent); }
-.btn.primary:hover, .btn.rework:hover { background: var(--secondary); border-color: var(--secondary); color: var(--on-accent); }
-.btn.done { background: var(--secondary); border-color: var(--secondary); color: var(--on-accent); }
-.btn.done:hover { background: var(--fg); border-color: var(--fg); }
+.btn.primary:hover, .btn.rework:hover, .btn.done:hover { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.done { background: var(--fg); border-color: var(--fg); color: var(--on-accent); }
 @media (prefers-reduced-motion: no-preference) {
   .btn.rework-in { animation: rework-in 320ms var(--ease-out), rework-glow 800ms ease; }
   @keyframes rework-in { from { transform: translateY(10px) scale(0.96); opacity: 0; } }
@@ -254,7 +263,32 @@ aside.panel {
 textarea { width: 100%; min-height: 70px; resize: vertical; background: var(--surface); border: 1px solid var(--line); border-radius: 1px; padding: 8px 10px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 8px 16px; border-radius: 0; font-weight: 600; z-index: 30; max-width: calc(100% - 32px); }
 .empty { color: var(--muted); }
+.tools { display: contents; }
+.tools-toggle { display: none; }
+html.panel-open, html.panel-open body { overflow: hidden; }
 @media (max-width: 720px) {
+  /* Phone: header scrolls away with the page (no sticky block over the first ticket); filters fold behind a button. */
+  header.top { position: static !important; }
+  .titlerow { flex-wrap: wrap; row-gap: 10px; }
+  .pc-status .txt { white-space: nowrap; }
+  .wavebar .track { display: none; }
+  .tools-toggle { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: none; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px; }
+  .tools-toggle[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .tools-toggle b { min-width: 20px; padding: 0 6px; background: var(--accent); color: var(--on-accent); font-size: 12px; line-height: 20px; text-align: center; }
+  .tools-toggle[aria-expanded="true"] b { background: var(--on-accent); color: var(--accent); }
+  .tools { display: none; }
+  body.show-tools .tools { display: grid; gap: 10px; width: 100%; }
+  .counters { order: 3; }
+  .pc-status { width: auto !important; margin-left: 0; min-height: 40px !important; padding: 6px 10px; font-size: 13px !important; }
+  .pc-status .ico { display: none; }
+  /* Ticket panel: one scroller for the whole sheet, actions right under the header. */
+  aside.panel { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  aside.panel > * { flex: none; }
+  .ph { order: 0; position: sticky; top: 0; z-index: 2; }
+  .ph h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .actions .question { background: color-mix(in srgb, var(--st-blocked) 22%, var(--surface)); border-left: 4px solid var(--warn-text); padding: 12px 14px; }
+  .actions { order: 1; border-top: 0; border-bottom: 1px solid var(--line); }
+  .pb { order: 2; overflow: visible; min-height: auto; }
   body { font-size: 17px; }
   header.top { position: sticky; gap: 12px; padding-block: 12px 0; }
   h1 { font-size: 26px; }
@@ -335,7 +369,8 @@ textarea { width: 100%; min-height: 70px; resize: vertical; background: var(--su
   <div class="titlerow">
     <h1>Elme <span>Board</span></h1>
     <span class="sub">Hyvä port roadmap</span>
-    <div class="pc-status offline" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">PC offline</span></div>
+    <div class="pc-status" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">Checking PC…</span></div>
+    <button class="tools-toggle" id="tools-toggle" type="button" aria-expanded="false" aria-controls="tools"><svg class="ico" aria-hidden="true"><use href="#i-plan"/></svg><span>Filters</span><b id="tools-count" hidden></b></button>
     <div class="counters" id="counters" aria-live="polite"></div>
   </div>
   <div class="toolbar">
@@ -344,6 +379,7 @@ textarea { width: 100%; min-height: 70px; resize: vertical; background: var(--su
       <button role="tab" id="tab-kanban" aria-selected="false" data-view="kanban"><svg class="ico" aria-hidden="true"><use href="#i-kanban"/></svg>Kanban</button>
       <button role="tab" id="tab-decisions" aria-selected="false" data-view="decisions"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Decisions</button>
     </div>
+    <div class="tools" id="tools">
     <div class="seg" id="grouping" role="group" aria-label="Group tickets by">
       <button data-group="plan" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-plan"/></svg>Plan order</button><button data-group="status" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-status"/></svg>By status</button>
     </div>
@@ -353,6 +389,7 @@ textarea { width: 100%; min-height: 70px; resize: vertical; background: var(--su
       <select id="kind" aria-label="Ticket kind">
         <option value="">All kinds</option><option value="FE">FE</option><option value="UX">UX</option><option value="BE">BE</option>
       </select>
+    </div>
     </div>
   </div>
 </header>
@@ -364,7 +401,7 @@ textarea { width: 100%; min-height: 70px; resize: vertical; background: var(--su
 <div class="toast" id="toast" hidden role="status"></div>
 
 <script type="module">
-import { assign, block, answer, done, requestIdeas, buildFromIdeas, devHolder } from '/board/logic.js';
+import { assign, block, answer, done, requestIdeas, buildFromIdeas, devHolder, requestSeo } from '/board/logic.js';
 
 const STATUS = {
   todo: { label: 'To do', c: '--st-todo' },
@@ -374,7 +411,7 @@ const STATUS = {
   blocked: { label: 'Blocked', c: '--st-blocked' },
   done: { label: 'Done', c: '--st-done' },
 };
-const HOLDER = { fe: ['FE', '--h-fe', 'FE agent'], be: ['BE', '--h-be', 'BE agent'], qa: ['QA', '--h-qa', 'QA agent'], idea: ['Mkt', '--h-roman', 'Marketing agent'], roman: ['R', '--h-roman', 'Roman'] };
+const HOLDER = { fe: ['FE', '--h-fe', 'FE agent'], be: ['BE', '--h-be', 'BE agent'], qa: ['QA', '--h-qa', 'QA agent'], idea: ['Mkt', '--h-roman', 'Marketing agent'], seo: ['SEO', '--st-qa', 'SEO agent'], roman: ['R', '--h-roman', 'Roman'] };
 const KANBAN_ORDER = ['todo', 'in_progress', 'in_qa', 'review', 'blocked', 'done'];
 const GROUPS = [
   ['Waiting for you', (t) => t.status === 'review' || t.status === 'blocked', '--st-review'],
@@ -393,7 +430,7 @@ const FOCUS = {
   agents: (t) => t.waiting,
   done: (t) => t.status === 'done',
 };
-let db = null, logUnsub = null, viewHtml = '', panelKey = '';
+let db = null, logUnsub = null, viewHtml = '', panelKey = '', viewDirty = false;
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ico = (id) => `<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></svg>`;
@@ -452,15 +489,16 @@ function rerunHolder(t) {
   if (t.kind === 'UX') return 'qa';
   return t.kind === 'BE' || t.builder === 'be' ? 'be' : 'fe';
 }
+// Compare with the server clock (board:meta carries serverNow), not the phone clock: skew made the status flap.
 function pcOnline() {
   const s = state.runnerStatus;
-  return !!(s && s.lastSeenAt && (Date.now() - s.lastSeenAt) < 90_000);
+  return !!(s && s.lastSeenAt && (Date.now() + (state.skew || 0) - s.lastSeenAt) < 90_000);
 }
 function queuedCount() {
   return [...state.tickets.values()].filter((t) => t.waiting && !activeRunFor(t.id)).length;
 }
 function renderPcStatus() {
-  const el = $('#pc-status'); if (!el) return;
+  const el = $('#pc-status'); if (!el || !state.metaSeen) return;
   const on = pcOnline();
   el.classList.toggle('online', on);
   el.classList.toggle('offline', !on);
@@ -631,6 +669,9 @@ function render() {
   $('#grouping').hidden = state.view !== 'table';
   document.querySelectorAll('#grouping button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.group === state.group)));
   const v = $('#view');
+  // On the phone the list sits under the full-screen ticket: rebuild it when the ticket closes, not under the finger.
+  if (state.open && narrow.matches) { viewDirty = true; renderPanel(); return; }
+  viewDirty = false;
   const html = state.view === 'table' ? renderTable() : state.view === 'kanban' ? renderKanban() : renderDecisions();
   if (viewHtml !== html) {
     const y = window.scrollY;
@@ -673,12 +714,12 @@ function renderPanel() {
   const sig = panelSignature(t);
   if (sig === panelKey && p.querySelector('.pb')) { patchLiveRun(); return; }
   panelKey = sig;
-  const prevScroll = p.querySelector('.pb')?.scrollTop ?? 0;
+  const scroller = () => (narrow.matches ? p : p.querySelector('.pb'));
+  const prevScroll = scroller()?.scrollTop ?? 0;
   const draftEl = p.querySelector('textarea');
   const draft = draftEl ? { id: draftEl.id, value: draftEl.value, start: draftEl.selectionStart, focus: document.activeElement === draftEl } : null;
   const entries = (state.log?.entries || []).slice().reverse();
   const report = latest('qa_report');
-  const question = t.status === 'blocked' ? latest('question') : null;
   const checks = (t.qa || []).map((q, i) => {
     const c = (t.qaChecks || [])[i];
     const st = c?.state || null;
@@ -687,7 +728,8 @@ function renderPanel() {
     return `<li><span class="ic ${st || ''}" aria-label="${st || 'not checked'}">${ic}</span><div>${inline(q)}<div class="by">${esc(by)}</div></div></li>`;
   }).join('');
   const ideasReport = latest('ideas');
-  const lc = { question: '--st-blocked', answer: '--h-roman', bug: '--st-blocked', qa_report: '--st-qa', ideas: '--h-roman', log: '--line', note: '--h-roman' };
+  const seoReport = latest('seo');
+  const lc = { seo: '--st-qa', question: '--st-blocked', answer: '--h-roman', bug: '--st-blocked', qa_report: '--st-qa', ideas: '--h-roman', log: '--line', note: '--h-roman' };
   p.innerHTML = `
     <div class="ph">
       <div class="row1"><h3><span class="mono">${esc(t.id)}</span> ${esc(t.title)}</h3><button class="close" id="close" aria-label="Close">${ico('x')}</button></div>
@@ -701,19 +743,18 @@ function renderPanel() {
     <div class="pb">
       ${runLiveHtml(t)}
       ${runFactsHtml(t)}
-      ${question ? `<section class="sec"><h4>Question for you</h4><div class="prose">${md(question.text)}</div></section>` : ''}
       <section class="sec"><h4>Description</h4><div class="prose">
         ${t.extends?.length ? `<p><strong>Extends:</strong> ${t.extends.map(esc).join(', ')}</p>` : ''}
         ${md(t.scope ? '**Scope:** ' + t.scope : '')}${md(t.ref ? '**Ref:** ' + t.ref : '')}
         <p><strong>Depends on:</strong> ${deps(t)}</p></div></section>
       <section class="sec"><h4>QA checklist</h4>${checks ? `<ul class="checks">${checks}</ul>` : '<p class="empty">No QA items.</p>'}</section>
       <section class="sec"><h4>QA report</h4>${report ? `<div class="prose">${md(report.text)}</div><div class="by empty">${when(report.at)}</div>` : '<p class="empty">The QA agent has not reported yet.</p>'}</section>
+      <section class="sec"><h4>SEO plan</h4>${seoReport ? `<div class="prose">${md(seoReport.text)}</div><div class="by empty">${when(seoReport.at)}</div>` : '<p class="empty">No SEO plan yet. Start the ticket with "SEO plan first", or ask for an SEO review.</p>'}</section>
       <section class="sec"><h4>Marketing verdict</h4>${ideasReport ? `<div class="prose">${md(ideasReport.text)}</div><div class="by empty">${when(ideasReport.at)}</div>` : '<p class="empty">No marketing review yet. On a done ticket, ask for one.</p>'}</section>
       <section class="sec"><h4>Agent log</h4>${entries.length ? `<ul class="log">${entries.map((e) => `<li style="--lc:var(${lc[e.kind] || '--line'})"><div class="lh"><span>${esc(HOLDER[e.who]?.[2] || e.who)}</span><span>${esc(e.kind.replace('_', ' '))}</span><span>${when(e.at)}</span></div><div class="prose">${md(e.text)}</div></li>`).join('')}</ul>` : '<p class="empty">Nothing yet. Start the ticket and the agent writes here.</p>'}</section>
     </div>
     <div class="actions">${actions(t)}</div>`;
-  const pb = p.querySelector('.pb');
-  const restore = () => { if (pb) pb.scrollTop = prevScroll; };
+  const restore = () => { const el = scroller(); if (el) el.scrollTop = prevScroll; };
   restore();
   requestAnimationFrame(restore);
   const again = p.querySelector('textarea');
@@ -730,10 +771,11 @@ function ideaControls(t) {
   const rework = t.ideaVerdict
     ? `<button class="btn primary rework rework-in" data-act="build" data-mode="idea">${ico('spark')}${verb} with marketing idea</button>`
     : `<button class="btn primary rework" data-act="build" data-mode="note" hidden>${ico('play')}${verb} with your note</button>`;
-  return `<label for="idea-note">Optional note. Typing switches the button to your direction.</label><textarea id="idea-note" placeholder="Your direction, or leave this empty."></textarea><div class="btns"><button class="btn idea" data-act="ideas">${ico('spark')}Marketing review</button>${rework}</div>`;
+  return `<details class="more"${t.ideaVerdict || latest('ideas') ? ' open' : ''}><summary>Marketing &amp; SEO review</summary><label for="idea-note">Optional note. Typing switches the button to your direction.</label><textarea id="idea-note" placeholder="Your direction, or leave this empty."></textarea><div class="btns"><button class="btn idea" data-act="ideas">${ico('spark')}Marketing review</button><button class="btn" data-act="seo">${ico('list')}SEO review</button>${rework}</div></details>`;
 }
 function actions(t) {
   if (!state.canWrite) return '<p class="empty">Read only: changes are saved only for the board owner.</p>';
+  if (t.holder === 'seo' && t.waiting) return `${runnerSeg()}<p class="empty">${pcOnline() ? 'SEO agent is writing the plan on your PC; the builder starts right after.' : 'PC offline — the SEO plan starts when the runner is back.'}</p>`;
   if (t.holder === 'idea' && t.waiting) return `${runnerSeg()}<p class="empty">${pcOnline() ? 'Marketing review is running on your PC.' : 'PC offline — the review starts when the runner is back.'}</p>`;
   const ux = t.kind === 'UX';
   const pick = runnerSeg();
@@ -741,10 +783,14 @@ function actions(t) {
     : `<button class="btn primary" data-act="assign" data-h="${t.kind === 'BE' ? 'be' : 'fe'}">${ico('play')}Start ${t.kind === 'BE' ? 'BE' : 'FE'}</button>
        <button class="btn" data-act="assign" data-h="${t.kind === 'BE' ? 'fe' : 'be'}">${ico('play')}Start ${t.kind === 'BE' ? 'FE' : 'BE'}</button>`;
   const back = (ux ? ['qa'] : ['fe', 'be', 'qa']).map((h) => `<button class="btn" data-act="back" data-h="${h}">${ico('back')}Back to ${HOLDER[h][0]}</button>`).join('');
-  if (t.status === 'todo') return `${pick}<div class="btns">${start}</div>${ideaControls(t)}`;
+  const seoFirst = t.kind !== 'BE' && !ux && !latest('seo')
+    ? `<label class="check"><input type="checkbox" id="seo-first" checked> SEO plan first (schema.org, meta, headings) — the SEO agent writes it, then the builder starts</label>` : '';
+  if (t.status === 'todo') return `${pick}${seoFirst}<div class="btns">${start}</div>${ideaControls(t)}`;
   if (t.status === 'blocked') {
     const h = rerunHolder(t);
-    return `${pick}<p class="empty">Rerun queues ${esc(HOLDER[h][2])} again with the runner selected above. The log records the command, branch and model that actually started.</p><label for="answer">Your answer</label><textarea id="answer" placeholder="Answer the agent…"></textarea><div class="btns"><button class="btn primary" data-act="answer">${ico('send')}Send answer</button><button class="btn" data-act="rerun" data-h="${h}">${ico('rerun')}Rerun</button></div>`;
+    const q = latest('question');
+    const qHtml = q ? `<div class="question"><h4>Question for you</h4><div class="prose">${md(q.text)}</div></div>` : '';
+    return `${qHtml}${pick}<p class="empty">Rerun queues ${esc(HOLDER[h][2])} again with the runner selected above. The log records the command, branch and model that actually started.</p><label for="answer">Your answer</label><textarea id="answer" placeholder="Answer the agent…"></textarea><div class="btns"><button class="btn primary" data-act="answer">${ico('send')}Send answer</button><button class="btn" data-act="rerun" data-h="${h}">${ico('rerun')}Rerun</button></div>`;
   }
   if (t.status === 'review') return `${pick}<label for="note">Bug or note for the agent (needed for Back to…)</label><textarea id="note" placeholder="What is wrong, where, how to reproduce…"></textarea><div class="btns"><button class="btn done" data-act="done">${ico('check')}Done</button>${back}</div>${ideaControls(t)}`;
   if (t.status === 'done') return `${pick}${ideaControls(t)}`;
@@ -789,6 +835,10 @@ function wireActions(t) {
           b.disabled = false;
           return;
         }
+        if (act === 'assign' && $('#seo-first')?.checked && b.dataset.h !== 'qa') {
+          await change(t, { ...requestSeo(t, assign(t, b.dataset.h)), runner }, `Roman started the ticket: SEO plan first, then the ${HOLDER[b.dataset.h][2]} (${runner}).`, 'log');
+          return;
+        }
         if (act === 'assign' || act === 'rerun') {
           const patch = { ...assign(t, b.dataset.h), runner, prev: null };
           const verb = act === 'rerun' ? 'reran' : 'started';
@@ -799,6 +849,7 @@ function wireActions(t) {
           const patch = t.status === 'done' ? { ...assign({ ...t, status: 'review' }, b.dataset.h) } : assign(t, b.dataset.h);
           await change(t, { ...patch, runner }, text, 'bug');
         }
+        else if (act === 'seo') await change(t, { ...requestSeo(t), runner }, `Roman asked for an SEO review (${runner}).`, 'log');
         else if (act === 'ideas') await change(t, { ...requestIdeas(t), runner }, `Roman asked for a marketing review (${runner}).`, 'log');
         else if (act === 'build') {
           const hasNote = !!ideaText;
@@ -826,6 +877,7 @@ async function change(t, patch, text, kind) {
 }
 async function addLog(id, kind, text) {
   const ref = db.doc(`log/${id}`);
+  if (ref.append) return ref.append({ at: Date.now(), who: 'roman', kind, text });
   const snap = await ref.get();
   const entries = snap.exists ? [...(snap.data().entries || [])] : [];
   entries.push({ at: Date.now(), who: 'roman', kind, text });
@@ -837,12 +889,19 @@ function openPanel(id) {
   // Ticket's saved runner wins when opening; otherwise keep last UI choice.
   if (t0?.runner === 'claude' || t0?.runner === 'cursor') state.pickRunner = t0.runner;
   $('#panel').hidden = false; $('#scrim').hidden = false;
+  document.documentElement.classList.add('panel-open');
+  $('#panel').scrollTop = 0;
   logUnsub?.();
   logUnsub = db ? db.doc(`log/${id}`).onSnapshot((s) => { state.log = s.exists ? s.data() : null; renderPanel(); }, () => {}) : null;
   renderPanel();
   $('#close')?.focus();
 }
-function closePanel() { state.open = null; panelKey = ''; logUnsub?.(); logUnsub = null; $('#panel').hidden = true; $('#scrim').hidden = true; }
+function closePanel() {
+  state.open = null; panelKey = ''; logUnsub?.(); logUnsub = null;
+  $('#panel').hidden = true; $('#scrim').hidden = true;
+  document.documentElement.classList.remove('panel-open');
+  if (viewDirty) render();
+}
 
 /* Kanban drag and drop */
 let dragId = null;
@@ -871,10 +930,19 @@ document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
   try { localStorage.setItem('elme-board-view', state.view); } catch {}
   render();
 });
-$('#search').oninput = (e) => { state.q = e.target.value; render(); };
-$('#kind').onchange = (e) => { state.kind = e.target.value; render(); };
-$('#grouping').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; state.group = b.dataset.group; try { localStorage.setItem('elme-board-group', state.group); } catch {} render(); };
-$('#epic').onchange = (e) => { state.epic = e.target.value; render(); };
+$('#search').oninput = (e) => { state.q = e.target.value; render(); renderToolsCount(); };
+$('#kind').onchange = (e) => { state.kind = e.target.value; render(); renderToolsCount(); };
+$('#grouping').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; state.group = b.dataset.group; try { localStorage.setItem('elme-board-group', state.group); } catch {} render(); renderToolsCount(); };
+$('#epic').onchange = (e) => { state.epic = e.target.value; render(); renderToolsCount(); };
+$('#tools-toggle').onclick = () => {
+  const open = !document.body.classList.contains('show-tools');
+  document.body.classList.toggle('show-tools', open);
+  $('#tools-toggle').setAttribute('aria-expanded', String(open));
+};
+function renderToolsCount() {
+  const n = [state.q, state.kind, state.epic].filter(Boolean).length + (state.group === 'status' ? 1 : 0);
+  const b = $('#tools-count'); b.hidden = !n; b.textContent = n;
+}
 $('#counters').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.goto) { document.querySelector(`.tabs [data-view="${b.dataset.goto}"]`).click(); return; }
@@ -897,6 +965,8 @@ try { const v = localStorage.getItem('elme-board-view'); if (v) document.querySe
 window.addEventListener('board:meta', (e) => {
   state.runnerStatus = e.detail?.runnerStatus || null;
   state.runs = e.detail?.runs || {};
+  if (e.detail?.serverNow) state.skew = e.detail.serverNow - Date.now();
+  state.metaSeen = true;
   renderPcStatus();
   // Do not rebuild the whole panel (that resets scroll on the phone).
   patchLiveRun();

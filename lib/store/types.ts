@@ -1,5 +1,5 @@
 export type Status = 'todo' | 'in_progress' | 'in_qa' | 'review' | 'done' | 'blocked';
-export type Holder = 'fe' | 'be' | 'qa' | 'idea' | 'roman' | null;
+export type Holder = 'fe' | 'be' | 'qa' | 'idea' | 'seo' | 'roman' | null;
 export type Runner = 'claude' | 'cursor';
 
 export type QaCheck = { state: 'passed' | 'failed' | 'not_checked'; by: string; at: number } | null;
@@ -56,7 +56,7 @@ export type Run = {
   id: string;
   ticketId: string;
   runner: Runner;
-  role: 'fe' | 'be' | 'qa' | 'idea';
+  role: 'fe' | 'be' | 'qa' | 'idea' | 'seo';
   status: 'queued' | 'running' | 'done' | 'failed' | 'stopped';
   startedAt: number;
   endedAt?: number;

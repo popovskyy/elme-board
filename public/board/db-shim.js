@@ -28,7 +28,7 @@
         listeners.tickets.forEach((fn) => fn(snapOf(board.tickets)));
         listeners.decisions.forEach((fn) => fn(snapOf(board.decisions)));
       }
-      window.dispatchEvent(new CustomEvent('board:meta', { detail: { runnerStatus: board.runnerStatus, runs: board.runs } }));
+      window.dispatchEvent(new CustomEvent('board:meta', { detail: { runnerStatus: board.runnerStatus, runs: board.runs, serverNow: board.serverNow } }));
     } catch (e) { /* keep polling; the page shows the last good state */ }
   }
   function ensurePolling() {
@@ -63,6 +63,7 @@
       };
       return {
         get,
+        append: async (entry) => { await api(`/api/log/${id}`, { method: 'POST', body: JSON.stringify({ entry }) }); },
         set: async ({ entries }) => { await api(`/api/log/${id}`, { method: 'PUT', body: JSON.stringify({ entries }) }); },
         onSnapshot(next) {
           let prev = '';
