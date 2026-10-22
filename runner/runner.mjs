@@ -197,34 +197,43 @@ async function startInner(t, runner) {
   }
   const extra = (runner === 'claude' ? process.env.CLAUDE_FLAGS : process.env.CURSOR_FLAGS) || '';
   const extraArgs = extra.trim() ? extra.trim().split(/\s+/).filter(Boolean) : (runner === 'claude' ? CLAUDE_DEFAULT_FLAGS : []);
-  // Claude: `claude -p "<prompt>"` (-p takes the prompt string).
-  // Cursor: `cursor-agent -p --force --trust -- <prompt>`
-  //   -p is boolean --print; prompt is positional AFTER `--` so a leading `---`
-  //   in the role file is not parsed as CLI flags (was causing instant exit 1).
+  // Claude: prompt on stdin (a role file starts with `---`, which the CLI would read as an option),
+  //   stream-json so the board shows what the agent is doing while it works.
+  // Cursor: `cursor-agent -p --force --trust -- <prompt>` (prompt positional after `--` for the same reason).
   const [cmd, args] = runner === 'claude'
-    ? ['claude', ['-p', prompt, ...extraArgs]]
+    ? ['claude', ['-p', '--output-format', 'stream-json', '--verbose', ...extraArgs]]
     : ['cursor-agent', ['-p', '--force', '--trust', '--workspace', REPO, ...extraArgs, '--', prompt]];
   const model = modelOf(extraArgs) || (runner === 'cursor' ? 'Auto' : 'Claude Code default');
   console.log(`runner: spawning ${cmd} for ${t.id} (${runner}, ${model})`);
   // Record the run before the agent starts: if the board is unreachable, no agent runs untracked.
   const run = await api('/api/runs', { method: 'POST', body: { ticketId: t.id, runner, role, branch: branch || null, model } });
-  const child = spawn(cmd, args, { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-  child.on('error', (e) => warn(`spawn ${cmd}: ${e.message}`));
-  api(`/api/runs/${run.id}`, { method: 'PATCH', body: { pid: child.pid } }).catch(warn);
-  const deadline = setTimeout(() => { busy && (busy.timedOut = true); killTree(child); }, MAX_RUN_MS);
-  await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text',
-    `PC started \`${cmd}\` as the ${ROLES[role]} on branch \`${branch || 'main'}\`, model ${model}.`]).catch(warn);
+  const child = spawn(cmd, args, { cwd: REPO, stdio: [runner === 'claude' ? 'pipe' : 'ignore', 'pipe', 'pipe'], detached: true });
+  // Listeners go on before any await: a fast exit (bad flag, auth) must not be missed, or the runner stays busy forever.
   busy = { ticketId: t.id, runId: run.id, child };
-
   const lines = [];
-  const onData = (buf) => { for (const l of String(buf).split('\n')) if (l.trim()) lines.push(l); lines.splice(0, Math.max(0, lines.length - 50)); };
-  child.stdout.on('data', onData);
-  child.stderr.on('data', onData);
+  const push = (l) => { if (l.trim()) lines.push(l.slice(0, 400)); lines.splice(0, Math.max(0, lines.length - 50)); };
+  let partial = '';
+  const onOut = (buf) => {
+    if (runner !== 'claude') { String(buf).split('\n').forEach(push); return; }
+    const chunk = partial + String(buf);
+    const parts = chunk.split('\n');
+    partial = parts.pop();
+    for (const p of parts) for (const l of claudeEvent(p)) push(l);
+  };
+  child.stdout.on('data', onOut);
+  child.stderr.on('data', (buf) => String(buf).split('\n').forEach(push));
+  child.on('error', (e) => { push(`spawn ${cmd}: ${e.message}`); warn(`spawn ${cmd}: ${e.message}`); });
+  if (runner === 'claude') { child.stdin.on('error', () => {}); child.stdin.end(prompt); }
+  const deadline = setTimeout(() => { busy && (busy.timedOut = true); killTree(child); }, MAX_RUN_MS);
   const flush = setInterval(() => api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines } }).catch(warn), 3000);
+  api(`/api/runs/${run.id}`, { method: 'PATCH', body: { pid: child.pid } }).catch(warn);
+  cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text',
+    `PC started \`${cmd}\` as the ${ROLES[role]} on branch \`${branch || 'main'}\`, model ${model}.`]).catch(warn);
 
   child.on('exit', async (code, signal) => {
     clearInterval(flush);
     clearTimeout(deadline);
+    if (partial) for (const l of claudeEvent(partial)) push(l);
     if (shuttingDown) return;
     const timedOut = !!busy?.timedOut;
     const stopped = signal === 'SIGTERM' || signal === 'SIGKILL';
@@ -355,6 +364,28 @@ async function api(path, { method = 'GET', body } = {}) {
   if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${data.error || ''}`);
   return data;
 }
+// One stream-json line from `claude -p` → short readable lines for the live run view.
+function claudeEvent(line) {
+  let e;
+  try { e = JSON.parse(line); } catch { return line.trim() ? [line] : []; }
+  const out = [];
+  if (e.type === 'assistant' && Array.isArray(e.message?.content)) {
+    for (const c of e.message.content) {
+      if (c.type === 'text' && c.text.trim()) out.push(c.text.trim().split('\n')[0]);
+      if (c.type === 'tool_use') {
+        const i = c.input || {};
+        const what = i.command || i.file_path || i.pattern || i.path || i.description || i.skill || '';
+        out.push(`→ ${c.name}${what ? `: ${String(what).split('\n')[0]}` : ''}`);
+      }
+    }
+  } else if (e.type === 'result') {
+    out.push(e.is_error ? `✗ ${e.subtype || 'error'}: ${String(e.result || '').split('\n')[0]}` : `✓ finished (${Math.round((e.duration_ms || 0) / 1000)} s)`);
+  } else if (e.type === 'system' && e.subtype === 'init') {
+    out.push(`claude started · model ${e.model || '?'}`);
+  }
+  return out;
+}
+
 function git(args) { return execFileSync('git', args, { cwd: REPO }).toString(); }
 function isAncestor(a, b) { try { git(['merge-base', '--is-ancestor', a, b]); return true; } catch { return false; } }
 function stackUp() { return execFileSync('docker', ['ps', '--format', '{{.Names}}']).toString().includes('elme_php'); }
