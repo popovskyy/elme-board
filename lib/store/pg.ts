@@ -63,7 +63,8 @@ export class PgStore implements Store {
       this.q<{ id: string; body: Ticket; version: number }>('select id, body, version from tickets'),
       this.q<{ id: string; body: Decision; version: number }>('select id, body, version from decisions'),
       this.q<{ ticket_id: string; entries: LogDoc['entries']; version: number }>('select ticket_id, entries, version from ticket_log'),
-      this.q<{ id: string; body: Run; version: number }>('select id, body, version from runs'),
+      // Only recent runs: the page polls this every 5 s and old runs carry 50 output lines each.
+      this.q<{ id: string; body: Run; version: number }>('select id, body, version from runs order by created_at desc limit 60'),
       this.q<{ last_seen_at: Date; host: string; busy_with: string | null }>('select last_seen_at, host, busy_with from runner_status where id = 1'),
     ]);
     const board: Board = { tickets: {}, decisions: {}, log: {}, runs: {}, runnerStatus: null };
