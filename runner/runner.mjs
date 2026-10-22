@@ -276,7 +276,7 @@ function preflight(t, board) {
   }
   if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
     if (!t.stashFirst) {
-      const files = git(['status', '--porcelain', '--untracked-files=no']).trim().split('\n').slice(0, 8).map((l) => l.slice(3)).join(', ');
+      const files = git(['status', '--porcelain', '--untracked-files=no']).split('\n').filter(Boolean).slice(0, 8).map((l) => l.slice(3)).join(', ');
       return { code: 'dirty', text: `The elme-hyva working tree on the PC has uncommitted changes (${files}).` };
     }
     git(['stash', 'push', '-m', `board ${t.id} ${new Date().toISOString()}`]);
