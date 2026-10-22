@@ -30,6 +30,10 @@ export type Ticket = {
   qaChecks: QaCheck[];
   updatedAt: number;
   version?: number;
+  /** Set by Done when the ticket has a feature branch; PC runner merges into main. */
+  mergeRequested?: boolean;
+  mergedAt?: number | null;
+  mergeError?: string | null;
 };
 
 export type Decision = {

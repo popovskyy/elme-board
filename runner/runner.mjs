@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Runner on Roman's PC: polls the board, runs Claude or Cursor one ticket at a time.
-// Outbound HTTPS only. Never merges, pushes, or sets Done.
+// Runner on Roman's PC: polls the board, runs Claude or Cursor one ticket at a time,
+// and merges a ticket branch into main when Roman presses Done (mergeRequested).
+// Outbound HTTPS only. Agents still must not merge/push/Done themselves.
 import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -15,7 +16,7 @@ const POLL_MS = 15_000;
 const BUSY_POLL_MS = 5_000;
 const HEARTBEAT_MS = 30_000;
 
-let busy = null; // { ticketId, runId, child }
+let busy = null; // { ticketId, runId, child } | { ticketId, merging: true }
 
 setInterval(() => api('/api/runner/heartbeat', { method: 'POST', body: { host: os.hostname(), busyWith: busy?.ticketId ?? null } }).catch(warn), HEARTBEAT_MS);
 await api('/api/runner/heartbeat', { method: 'POST', body: { host: os.hostname(), busyWith: null } }).catch(warn);
@@ -25,15 +26,74 @@ loop();
 async function loop() {
   try {
     if (!busy) {
-      for (const runner of ['claude', 'cursor']) {
-        const { ticket } = await api(`/api/runner/next?runner=${runner}`);
-        if (ticket) { await start(ticket, runner); break; }
+      // Done → merge into main first (Roman pressed Done on the phone).
+      if (await mergeNext()) { /* merged one */ }
+      else {
+        for (const runner of ['claude', 'cursor']) {
+          const { ticket } = await api(`/api/runner/next?runner=${runner}`);
+          if (ticket) { await start(ticket, runner); break; }
+        }
       }
-    } else {
+    } else if (!busy.merging) {
       await checkStop();
     }
   } catch (e) { warn(e); }
   setTimeout(loop, busy ? BUSY_POLL_MS : POLL_MS);
+}
+
+async function mergeNext() {
+  const board = await api('/api/board');
+  const pending = Object.values(board.tickets || {})
+    .filter((t) => t.status === 'done' && t.mergeRequested && t.branch && t.branch !== 'main')
+    .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+  if (!pending.length) return false;
+  const t = pending[0];
+  busy = { ticketId: t.id, merging: true };
+  console.log(`runner: merging ${t.id} branch ${t.branch} → main`);
+  try {
+    if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
+      throw new Error('Working tree has uncommitted changes. Commit or stash, then press Done again (or set mergeRequested).');
+    }
+    try { git(['fetch', 'origin']); } catch { /* offline / no remote ok for local merge */ }
+    git(['checkout', 'main']);
+    try { git(['pull', '--ff-only', 'origin', 'main']); } catch { /* local-only main */ }
+    if (!existsBranch(t.branch)) throw new Error(`Branch \`${t.branch}\` not found on the PC.`);
+    const msg = `Merge ${t.id}: ${t.title}`;
+    git(['merge', '--no-ff', '-m', msg, t.branch]);
+    let pushed = false;
+    try {
+      git(['push', 'origin', 'main']);
+      pushed = true;
+    } catch (e) {
+      warn(`merge ok locally, push failed: ${e.message || e}`);
+    }
+    await patchTicket(t, {
+      mergeRequested: false,
+      mergedAt: Date.now(),
+      mergeError: null,
+    });
+    await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text',
+      pushed
+        ? `Merged \`${t.branch}\` into \`main\` and pushed origin/main.`
+        : `Merged \`${t.branch}\` into \`main\` locally. Push to origin failed — push manually if needed.`,
+    ]);
+    console.log(`runner: merged ${t.id}`);
+  } catch (e) {
+    const err = String(e.message || e).slice(0, 500);
+    warn(`merge ${t.id} failed: ${err}`);
+    try {
+      // Leave repo on main if possible; abort merge if stuck mid-merge.
+      try { git(['merge', '--abort']); } catch { /* not merging */ }
+      try { git(['checkout', 'main']); } catch { /* ignore */ }
+      await patchTicket(t, { mergeRequested: false, mergeError: err, mergedAt: null });
+      await cli(['log', t.id, '--who', 'watcher', '--kind', 'note', '--text',
+        `Merge into main failed: ${err}\n\nFix the repo, then reopen Review → Done to retry.`,
+      ]);
+    } catch (e2) { warn(e2); }
+  } finally {
+    busy = null;
+  }
+  return true;
 }
 
 async function start(t, runner) {
@@ -129,8 +189,15 @@ function buildPrompt(t, role, runner, branch, board) {
         ? `node .roadmap/app/cli/board.mjs qa ${t.id} --verdict passed|failed --checks '<json>' --report <file>`
         : `node .roadmap/app/cli/board.mjs built ${t.id} --commits "<shas>" --summary <file>`) +
       `\nIf blocked: node .roadmap/app/cli/board.mjs block ${t.id} --question "<one question for Roman>"` +
-      `\nNever merge, push, or mark Done.`,
+      `\nDo not merge, push, or mark Done — Roman presses Done on the board; the PC runner merges then.`,
   ].join('\n');
+}
+
+async function patchTicket(t, patch) {
+  return api(`/api/tickets/${t.id}`, {
+    method: 'PATCH',
+    body: { patch: { ...patch, updatedAt: Date.now() }, ifVersion: t.version ?? 1 },
+  });
 }
 
 async function writeBoardMd(board) {

@@ -563,7 +563,10 @@ function renderPanel() {
     <div class="ph">
       <div class="row1"><h3><span class="mono">${esc(t.id)}</span> ${esc(t.title)}</h3><button class="close" id="close" aria-label="Close">✕</button></div>
       <div class="facts">${pill(t.status)} ${holder(t.holder)} <span class="chip tool">${esc(runnerLabel(t))}</span> <span>${esc(t.epic)}</span> <span>${esc(t.kind)}</span>
-        ${t.branch ? `<span class="mono">${esc(t.branch)}</span>` : ''}${t.qaVerdict ? `<span>QA: ${esc(t.qaVerdict)}</span>` : ''}</div>
+        ${t.branch ? `<span class="mono">${esc(t.branch)}</span>` : ''}${t.qaVerdict ? `<span>QA: ${esc(t.qaVerdict)}</span>` : ''}
+        ${t.mergeRequested ? '<span class="chip work">Merging into main…</span>' : ''}
+        ${t.mergedAt ? '<span class="chip ready">Merged to main</span>' : ''}
+        ${t.mergeError ? `<span class="chip" style="color:var(--warn-text)">Merge failed</span>` : ''}</div>
     </div>
     <div class="pb">
       ${runLiveHtml(t)}
