@@ -1,5 +1,5 @@
 /* Minimal service worker: cache the board shell so Add to Home Screen feels like an app. */
-const CACHE = 'elme-board-v2';
+const CACHE = 'elme-board-v3';
 const SHELL = [
   '/board/db-shim.js',
   '/board/logic.js',

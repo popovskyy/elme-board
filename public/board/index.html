@@ -432,11 +432,48 @@ function runLiveHtml(t) {
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const ss = String(elapsed % 60).padStart(2, '0');
   const lines = (run.lastLines || []).slice(-40).join('\n') || 'Waiting for agent output…';
-  return `<section class="sec"><h4>Live run</h4><div class="runbox">
+  return `<section class="sec" data-live-run="1"><h4>Live run</h4><div class="runbox">
     <div class="runhead"><span><strong>${esc(run.runner)}</strong> · ${esc(run.status)} · ${mm}:${ss}</span>
       <button class="btn stop" data-act="stop" data-run="${esc(run.id)}" type="button">Stop</button></div>
     <pre>${esc(lines)}</pre>
   </div></section>`;
+}
+/** Update only the live-run block so the panel does not jump scroll on every poll. */
+function patchLiveRun() {
+  if (!state.open) return;
+  const t = state.tickets.get(state.open);
+  if (!t) return;
+  const pb = $('#panel .pb');
+  if (!pb) return;
+  const html = runLiveHtml(t);
+  let sec = pb.querySelector('[data-live-run]');
+  if (!html) { sec?.remove(); return; }
+  if (!sec) {
+    sec = document.createElement('div');
+    pb.prepend(sec);
+    sec.outerHTML = html;
+    sec = pb.querySelector('[data-live-run]');
+    sec?.querySelector('[data-act="stop"]')?.addEventListener('click', async (ev) => {
+      const b = ev.currentTarget;
+      try { b.disabled = true; await window.boardStopRun(b.dataset.run); toast('Stop requested'); }
+      catch (e) { toast(e.message || 'Stop failed'); b.disabled = false; }
+    });
+    return;
+  }
+  const pre = sec.querySelector('pre');
+  const head = sec.querySelector('.runhead span');
+  const run = activeRunFor(t.id);
+  if (!run || !pre || !head) { renderPanel(); return; }
+  const elapsed = Math.max(0, Math.round((Date.now() - (run.startedAt || Date.now())) / 1000));
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const ss = String(elapsed % 60).padStart(2, '0');
+  head.innerHTML = `<strong>${esc(run.runner)}</strong> · ${esc(run.status)} · ${mm}:${ss}`;
+  const lines = (run.lastLines || []).slice(-40).join('\n') || 'Waiting for agent output…';
+  if (pre.textContent !== lines) {
+    const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
+    pre.textContent = lines;
+    if (atBottom) pre.scrollTop = pre.scrollHeight;
+  }
 }
 function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2800); }
 
@@ -548,6 +585,7 @@ function renderPanel() {
   const t = state.tickets.get(state.open);
   const p = $('#panel');
   if (!t) { closePanel(); return; }
+  const prevScroll = p.querySelector('.pb')?.scrollTop ?? 0;
   const entries = (state.log?.entries || []).slice().reverse();
   const report = latest('qa_report');
   const question = t.status === 'blocked' ? latest('question') : null;
@@ -580,6 +618,8 @@ function renderPanel() {
       <section class="sec"><h4>Agent log</h4>${entries.length ? `<ul class="log">${entries.map((e) => `<li style="--lc:var(${lc[e.kind] || '--line'})"><div class="lh"><span>${esc(HOLDER[e.who]?.[2] || e.who)}</span><span>${esc(e.kind.replace('_', ' '))}</span><span>${when(e.at)}</span></div><div class="prose">${md(e.text)}</div></li>`).join('')}</ul>` : '<p class="empty">Nothing yet. Start the ticket and the agent writes here.</p>'}</section>
     </div>
     <div class="actions">${actions(t)}</div>`;
+  const pb = p.querySelector('.pb');
+  if (pb) pb.scrollTop = prevScroll;
   $('#close').onclick = closePanel;
   wireActions(t);
 }
@@ -713,10 +753,11 @@ window.addEventListener('board:meta', (e) => {
   state.runnerStatus = e.detail?.runnerStatus || null;
   state.runs = e.detail?.runs || {};
   renderPcStatus();
-  if (state.open) renderPanel();
+  // Do not rebuild the whole panel (that resets scroll on the phone).
+  patchLiveRun();
 });
 setInterval(() => {
-  if (state.open && activeRunFor(state.open)) renderPanel();
+  patchLiveRun();
   renderPcStatus();
 }, 1000);
 
