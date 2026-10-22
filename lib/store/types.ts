@@ -36,6 +36,11 @@ export type Ticket = {
   mergeRequested?: boolean;
   mergedAt?: number | null;
   mergeError?: string | null;
+  /** Roman's choice on a branch conflict, read once by the PC runner. */
+  resetBranch?: boolean;
+  resolveConflict?: boolean;
+  stashFirst?: boolean;
+  skipChecks?: boolean;
 };
 
 export type Decision = {
@@ -49,7 +54,7 @@ export type Decision = {
   version?: number;
 };
 
-export type LogEntry = { at: number; who: string; kind: string; text: string };
+export type LogEntry = { at: number; who: string; kind: string; text: string; code?: string };
 export type LogDoc = { entries: LogEntry[]; version?: number };
 
 export type Run = {

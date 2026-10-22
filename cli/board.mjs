@@ -87,7 +87,9 @@ async function main() {
     case 'block': {
       const t = await ticket(id);
       await patchTicket(t, block(t));
-      return appendLog(id, { who: t.holder || 'watcher', kind: 'question', text: need(opt('question'), '--question') });
+      const entry = { who: opt('who') || t.holder || 'watcher', kind: 'question', text: need(opt('question'), '--question') };
+      if (opt('code')) entry.code = opt('code'); // lets the board show the right buttons
+      return appendLog(id, entry);
     }
     case 'assign': { // for scripts/tests; Roman normally does this on the board
       const t = await ticket(id);

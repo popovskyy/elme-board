@@ -127,27 +127,56 @@ async function mergeNext() {
 }
 
 async function start(t, runner) {
+  try {
+    await startInner(t, runner);
+  } catch (e) {
+    const msg = String(e.message || e).slice(0, 600);
+    warn(`start ${t.id} failed: ${msg}`);
+    if (busy?.ticketId === t.id && busy.child) return; // agent is running; its exit handler reports
+    try { git(['merge', '--abort']); } catch { /* not merging */ }
+    await cli(['block', t.id, '--who', 'watcher', '--code', 'error', '--question', `The PC runner could not start this ticket:\n\n\`${msg}\``]).catch(warn);
+  }
+}
+
+async function startInner(t, runner) {
   const board = await api('/api/board');
   const problem = preflight(t, board);
   if (problem) {
-    await cli(['block', t.id, '--question', problem]);
+    await cli(['block', t.id, '--who', 'watcher', '--code', problem.code, '--question', problem.text]);
     return;
   }
 
   const role = t.holder;
   let branch = t.branch;
+  let conflicts = [];
   if (role === 'fe' || role === 'be') {
     branch ||= `${t.id.toLowerCase()}-${slug(t.title)}`;
+    if (t.resetBranch && existsBranch(branch)) {
+      // Roman chose "Start over from main": keep the old work under another name, cut a fresh branch.
+      const keep = `${branch}-old-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`;
+      git(['checkout', 'main']);
+      git(['branch', '-m', branch, keep]);
+      await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text', `Started over from \`main\`. The previous work is kept in branch \`${keep}\`.`]).catch(warn);
+    }
     const exists = existsBranch(branch);
     git(exists ? ['checkout', branch] : ['checkout', '-b', branch, 'main']);
     // Keep the ticket branch on top of main (dependencies merged after the branch was cut, e.g. FE-01 under FE-02).
     if (exists && !isAncestor('main', branch)) {
       try { git(['merge', '--no-edit', '-m', `Merge main into ${branch}`, 'main']); }
       catch {
-        try { git(['merge', '--abort']); } catch { /* not merging */ }
-        await cli(['block', t.id, '--question', `\`main\` has changes that conflict with \`${branch}\`. Resolve the merge on the PC, then Rerun.`]);
-        return;
+        conflicts = git(['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean);
+        if (!t.resolveConflict) {
+          try { git(['merge', '--abort']); } catch { /* not merging */ }
+          await cli(['block', t.id, '--who', 'watcher', '--code', 'conflict', '--question',
+            `\`main\` conflicts with \`${branch}\` in: ${conflicts.map((f) => `\`${f}\``).join(', ') || 'several files'}.\n\n` +
+            'Choose on this ticket: **Start over from main** (the old branch is kept under a new name) or **Agent resolves the conflict**.']);
+          return;
+        }
+        // Roman chose "Agent resolves the conflict": leave the merge open for the agent.
       }
+    }
+    if (t.resetBranch || t.resolveConflict) {
+      await api(`/api/tickets/${t.id}`, { method: 'PATCH', body: { patch: { resetBranch: false, resolveConflict: false } } }).catch(warn);
     }
   } else if (branch) {
     git(['checkout', branch]);
@@ -156,8 +185,16 @@ async function start(t, runner) {
   }
   const branchArgs = (role === 'fe' || role === 'be') && branch ? ['--branch', branch] : [];
   await cli(['take', t.id, '--runner', runner, ...branchArgs]);
+  if (t.stashFirst || t.skipChecks) {
+    await api(`/api/tickets/${t.id}`, { method: 'PATCH', body: { patch: { stashFirst: false, skipChecks: false } } }).catch(warn);
+  }
 
-  const prompt = buildPrompt(t, role, runner, branch, board);
+  let prompt = buildPrompt(t, role, runner, branch, board);
+  if (conflicts.length) {
+    prompt += `\n\n# Merge in progress (do this first)\nThe runner merged \`main\` into \`${branch}\` and these files conflict: ${conflicts.join(', ')}.\n` +
+      'Resolve them: keep main\'s version for anything outside this ticket, keep this ticket\'s work where it is the ticket\'s scope. ' +
+      'Then `git add` the files and `git commit --no-edit` to finish the merge. This is the one merge you may complete; then do the ticket.';
+  }
   const extra = (runner === 'claude' ? process.env.CLAUDE_FLAGS : process.env.CURSOR_FLAGS) || '';
   const extraArgs = extra.trim() ? extra.trim().split(/\s+/).filter(Boolean) : (runner === 'claude' ? CLAUDE_DEFAULT_FLAGS : []);
   // Claude: `claude -p "<prompt>"` (-p takes the prompt string).
@@ -204,7 +241,12 @@ async function start(t, runner) {
         await cli(['seo', t.id, '--report', '/dev/null']).catch(warn);
       }
       else if (role === 'idea') await cli(['ideas-restore', t.id, '--text', `${why}\n\n${tail}`]).catch(warn);
-      else await cli(['block', t.id, '--question', `${why} Last lines:\n\n${tail}`]).catch(warn);
+      else {
+        const limit = /usage limit|rate limit|quota|out of credits|upgrade to/i.test(tail);
+        const code = timedOut ? 'timeout' : stopped ? 'stopped' : limit ? 'limit' : 'no_report';
+        const lead = limit ? `${runner === 'cursor' ? 'Cursor' : 'Claude'} hit its usage limit. Switch the runner and rerun.` : why;
+        await cli(['block', t.id, '--who', 'watcher', '--code', code, '--question', `${lead} Last lines:\n\n${tail}`]).catch(warn);
+      }
     }
     writeBoardMd(latest).catch(warn);
     busy = null;
@@ -216,24 +258,39 @@ async function checkStop() {
   if (board.runs?.[busy.runId]?.stopRequested) killTree(busy.child);
 }
 
+// Returns { code, text } when the ticket cannot start, else null. The code picks the buttons on the board.
+// One-shot flags set from the board: stashFirst (stash local changes), skipChecks (run despite deps/decisions).
 function preflight(t, board) {
-  if (git(['status', '--porcelain', '--untracked-files=no']).trim()) return 'The elme-hyva working tree has uncommitted changes. Commit or stash them?';
+  if (existsSync(path.join(REPO, '.git', 'MERGE_HEAD'))) {
+    // A previous agent died in the middle of a merge: drop it, the conflict logic runs again below.
+    try { git(['merge', '--abort']); console.log('runner: aborted an unfinished merge'); } catch { /* ignore */ }
+  }
+  if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
+    if (!t.stashFirst) {
+      const files = git(['status', '--porcelain', '--untracked-files=no']).trim().split('\n').slice(0, 8).map((l) => l.slice(3)).join(', ');
+      return { code: 'dirty', text: `The elme-hyva working tree on the PC has uncommitted changes (${files}).` };
+    }
+    git(['stash', 'push', '-m', `board ${t.id} ${new Date().toISOString()}`]);
+    console.log(`runner: stashed local changes for ${t.id}`);
+  }
+  if (git(['rev-parse', '--abbrev-ref', 'HEAD']).trim() === 'HEAD') return { code: 'error', text: 'The PC repo is in detached HEAD state.' };
   if (t.holder === 'idea' || t.holder === 'seo') return null;
   try {
     if (!stackUp()) {
-      // After a reboot the stack is down (restart: "no"). Start it once instead of asking Roman.
+      // After a reboot the stack is down (restart: "no"). Start it instead of asking Roman.
       console.log('runner: Docker stack is down, starting it');
       try { execFileSync('docker', ['compose', 'up', '-d'], { cwd: REPO, stdio: 'ignore', timeout: 300_000 }); } catch { /* checked below */ }
-      if (!stackUp()) return 'Docker stack is down and `docker compose up -d` did not bring `elme_php` up. Check Docker on the PC.';
+      if (!stackUp()) return { code: 'docker', text: 'Docker stack is down and `docker compose up -d` did not bring `elme_php` up. Is Docker running on the PC?' };
     }
-  } catch { return 'Docker is not available on the PC.'; }
+  } catch { return { code: 'docker', text: 'Docker is not available on the PC (is the Docker service running?).' }; }
+  if (t.skipChecks) return null;
   const tickets = board?.tickets || {};
   const decisions = board?.decisions || {};
   const need = t.kind === 'UX' ? (t.extends || []) : (t.deps || []);
   const openDeps = need.filter((id) => tickets[id]?.status !== 'done');
-  if (openDeps.length) return `Dependencies not done: ${openDeps.join(', ')}.`;
+  if (openDeps.length) return { code: 'deps', text: `Dependencies are not done yet: ${openDeps.join(', ')}.` };
   const openDec = (t.decisions || []).filter((id) => decisions[id]?.status !== 'decided');
-  if (openDec.length) return `Open decisions: ${openDec.join(', ')}. Answer them first?`;
+  if (openDec.length) return { code: 'decisions', text: `Open decisions: ${openDec.join(', ')}. Decide them, or run anyway.` };
   return null;
 }
 

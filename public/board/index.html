@@ -789,10 +789,36 @@ function actions(t) {
   if (t.status === 'blocked') {
     const h = rerunHolder(t);
     const q = latest('question');
-    const qHtml = q ? `<div class="question"><h4>Question for you</h4><div class="prose">${md(q.text)}</div></div>` : '';
-    return `${qHtml}${pick}<p class="empty">Rerun queues ${esc(HOLDER[h][2])} again with the runner selected above. The log records the command, branch and model that actually started.</p><label for="answer">Your answer</label><textarea id="answer" placeholder="Answer the agent…"></textarea><div class="btns"><button class="btn primary" data-act="answer">${ico('send')}Send answer</button><button class="btn" data-act="rerun" data-h="${h}">${ico('rerun')}Rerun</button></div>`;
+    const fromPc = q && q.who === 'watcher';
+    const code = q?.code || (fromPc && /conflicts with/.test(q.text) ? 'conflict' : fromPc ? 'error' : 'agent');
+    const other = preferredRunner() === 'cursor' ? 'claude' : 'cursor';
+    const otherName = other === 'cursor' ? 'Cursor' : 'Claude';
+    const title = code === 'agent' ? 'Question for you' : 'Your PC needs a decision';
+    const qHtml = q ? `<div class="question"><h4>${title}</h4><div class="prose">${md(q.text)}</div></div>` : '';
+    const rerun = (label = 'Rerun') => `<button class="btn" data-act="rerun" data-h="${h}">${ico('rerun')}${label}</button>`;
+    const sw = `<button class="btn" data-act="switch" data-h="${h}" data-runner="${other}">${ico(other === 'cursor' ? 'cursor' : 'spark')}Run with ${otherName}</button>`;
+    const buttons = {
+      conflict: `<button class="btn primary" data-act="fresh" data-h="${h}">${ico('rerun')}Start over from main</button><button class="btn" data-act="resolve" data-h="${h}">${ico('play')}Agent resolves the conflict</button>`,
+      dirty: `<button class="btn primary" data-act="stash" data-h="${h}">${ico('play')}Stash the changes and run</button>${rerun('Rerun (I cleaned up)')}`,
+      deps: `<button class="btn primary" data-act="skip" data-h="${h}">${ico('play')}Run anyway</button>${rerun('Rerun (deps are done)')}`,
+      decisions: `<button class="btn primary" data-act="skip" data-h="${h}">${ico('play')}Run anyway</button><button class="btn" data-act="goto-decisions">${ico('list')}Open decisions</button>${rerun()}`,
+      docker: `<button class="btn primary" data-act="rerun" data-h="${h}">${ico('rerun')}Try again (the runner starts Docker)</button>`,
+      limit: `<button class="btn primary" data-act="switch" data-h="${h}" data-runner="${other}">${ico(other === 'cursor' ? 'cursor' : 'spark')}Run with ${otherName}</button>${rerun('Rerun with the same tool')}`,
+      timeout: `${rerun()}${sw}`, stopped: `${rerun()}${sw}`, no_report: `${rerun()}${sw}`, error: `${rerun()}${sw}`,
+    };
+    const hint = {
+      conflict: 'Start over keeps the old branch under a new name and cuts a fresh one from main.',
+      dirty: 'Stash keeps the changes in git stash on the PC; nothing is lost.',
+      deps: 'Run anyway skips the dependency check once.',
+      decisions: 'Run anyway skips the check once; the agent sees the decision as open.',
+    }[code] || '';
+    if (code !== 'agent') {
+      return `${qHtml}${pick}<div class="btns">${buttons[code] || rerun()}</div>${hint ? `<p class="empty">${hint}</p>` : ''}<label for="answer">Note for the agent (optional)</label><textarea id="answer" placeholder="Extra context for the rerun…"></textarea>`;
+    }
+    return `${qHtml}${pick}<label for="answer">Your answer</label><textarea id="answer" placeholder="Answer the agent…"></textarea><div class="btns"><button class="btn primary" data-act="answer">${ico('send')}Send answer and continue</button>${rerun()}</div>`;
   }
   if (t.status === 'review') return `${pick}<label for="note">Bug or note for the agent (needed for Back to…)</label><textarea id="note" placeholder="What is wrong, where, how to reproduce…"></textarea><div class="btns"><button class="btn done" data-act="done">${ico('check')}Done</button>${back}</div>${ideaControls(t)}`;
+  if (t.status === 'done' && t.mergeError) return `<div class="question"><h4>Merge into main failed</h4><div class="prose">${md(t.mergeError)}</div></div><div class="btns"><button class="btn primary" data-act="retry-merge">${ico('rerun')}Retry merge</button></div>${pick}${ideaControls(t)}`;
   if (t.status === 'done') return `${pick}${ideaControls(t)}`;
   if (t.waiting) return `${pick}<p class="empty">${pcOnline() ? 'Queued / running on your PC.' : 'PC offline — starts when the runner comes back.'}</p>`;
   return `${pick}<label for="note">Note for the agent</label><textarea id="note" placeholder="Extra context…"></textarea><div class="btns"><button class="btn" data-act="note">${ico('send')}Add note</button></div>`;
@@ -839,10 +865,25 @@ function wireActions(t) {
           await change(t, { ...requestSeo(t, assign(t, b.dataset.h)), runner }, `Roman started the ticket: SEO plan first, then the ${HOLDER[b.dataset.h][2]} (${runner}).`, 'log');
           return;
         }
+        if (act === 'retry-merge') { await change(t, { mergeRequested: true, mergeError: null, updatedAt: Date.now() }, 'Roman asked the PC to retry the merge into main.', 'log'); return; }
+        if (act === 'goto-decisions') { closePanel(); document.querySelector('.tabs [data-view="decisions"]').click(); return; }
+        if (['fresh', 'resolve', 'stash', 'skip', 'switch'].includes(act)) {
+          const flag = { fresh: { resetBranch: true }, resolve: { resolveConflict: true }, stash: { stashFirst: true }, skip: { skipChecks: true }, switch: {} }[act];
+          const useRunner = act === 'switch' ? b.dataset.runner : runner;
+          if (act === 'switch') { state.pickRunner = useRunner; try { localStorage.setItem('elme-board-runner', useRunner); } catch {} }
+          const msg = {
+            fresh: 'Roman chose: start over from main.', resolve: 'Roman chose: the agent resolves the merge conflict.',
+            stash: 'Roman chose: stash the local changes on the PC and run.', skip: 'Roman chose: run anyway (skip the dependency/decision check once).',
+            switch: `Roman switched the runner to ${useRunner} and reran.`,
+          }[act] + (text ? `\n\n${text}` : '');
+          // Back to the agent that was blocked, with the one-shot flag the PC runner reads.
+          await change(t, { ...assign(t.status === 'blocked' ? { ...t, status: 'todo' } : t, b.dataset.h), runner: useRunner, prev: null, ...flag }, msg, 'answer');
+          return;
+        }
         if (act === 'assign' || act === 'rerun') {
           const patch = { ...assign(t, b.dataset.h), runner, prev: null };
           const verb = act === 'rerun' ? 'reran' : 'started';
-          await change(t, patch, `Roman ${verb} the ticket with the ${HOLDER[b.dataset.h][2]} (${runner}).`, 'log');
+          await change(t, patch, `Roman ${verb} the ticket with the ${HOLDER[b.dataset.h][2]} (${runner}).${text ? `\n\n${text}` : ''}`, act === 'rerun' && text ? 'answer' : 'log');
         }
         else if (act === 'back') {
           if (!text) { toast('Write the bug first, so the agent knows what to fix.'); b.disabled = false; return; }
