@@ -3,11 +3,13 @@
 (() => {
   const POLL_MS = 5000;
   const api = async (path, opts = {}) => {
-    const res = await fetch(path, { ...opts, headers: { 'content-type': 'application/json' }, cache: 'no-store' });
+    const res = await fetch(path, { ...opts, headers: { 'content-type': 'application/json', ...(opts.headers || {}) }, cache: 'no-store' });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(body.error || `HTTP ${res.status}`), { code: res.status === 409 ? 'conflict' : 'unavailable' });
     return body;
   };
+  // Stop an agent run from the phone (no bearer token; Deployment Protection is the gate).
+  window.boardStopRun = (runId) => api(`/api/runs/${runId}`, { method: 'PATCH', body: JSON.stringify({ stopRequested: true }) });
   const snapOf = (map) => {
     const docs = Object.values(map || {}).map((d) => ({ id: d.id, exists: true, data: () => d, metadata: {} }));
     return { docs, size: docs.length, empty: !docs.length, docChanges: () => [], metadata: {} };
