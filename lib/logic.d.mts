@@ -1,0 +1,13 @@
+import type { Ticket } from './store/types';
+export const STATUSES: string[];
+export const HOLDERS: (string | null)[];
+export const AGENTS: string[];
+type Patch = Partial<Ticket>;
+export function assign(ticket: Ticket, holder: 'fe' | 'be' | 'qa'): Patch;
+export function block(ticket: Ticket): Patch;
+export function answer(ticket: Ticket): Patch;
+export function handToQa(ticket?: Ticket): Patch;
+export function qaPassed(ticket?: Ticket): Patch;
+export function qaFailed(ticket: Ticket, builder: 'fe' | 'be'): Patch;
+export function done(ticket: Ticket): Patch;
+export function pickable(tickets: Ticket[]): Ticket | null;
