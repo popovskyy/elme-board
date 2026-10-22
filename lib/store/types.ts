@@ -1,5 +1,5 @@
 export type Status = 'todo' | 'in_progress' | 'in_qa' | 'review' | 'done' | 'blocked';
-export type Holder = 'fe' | 'be' | 'qa' | 'roman' | null;
+export type Holder = 'fe' | 'be' | 'qa' | 'idea' | 'roman' | null;
 export type Runner = 'claude' | 'cursor';
 
 export type QaCheck = { state: 'passed' | 'failed' | 'not_checked'; by: string; at: number } | null;
@@ -27,6 +27,8 @@ export type Ticket = {
   branch: string | null;
   builder?: 'fe' | 'be';
   qaVerdict: 'passed' | 'failed' | null;
+  /** Marketing agent on a done ticket: ship = leave it, push = worth another design pass. */
+  ideaVerdict?: 'ship' | 'push' | null;
   qaChecks: QaCheck[];
   updatedAt: number;
   version?: number;
@@ -54,11 +56,14 @@ export type Run = {
   id: string;
   ticketId: string;
   runner: Runner;
-  role: 'fe' | 'be' | 'qa';
+  role: 'fe' | 'be' | 'qa' | 'idea';
   status: 'queued' | 'running' | 'done' | 'failed' | 'stopped';
   startedAt: number;
   endedAt?: number;
   pid?: number;
+  branch?: string | null;
+  model?: string;
+  exitCode?: number | null;
   lastLines: string[];
   stopRequested: boolean;
   version?: number;

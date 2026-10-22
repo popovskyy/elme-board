@@ -10,7 +10,7 @@
 //   board block FE-02 --question "Which menu source, D3?"
 //   board log FE-02 --who fe --kind note --text "…"
 import { readFileSync, existsSync } from 'node:fs';
-import { assign, block, handToQa, qaPassed, qaFailed } from '../lib/logic.mjs';
+import { assign, block, handToQa, qaPassed, qaFailed, ideasDone, ideasRestore } from '../lib/logic.mjs';
 
 loadEnv(new URL('../.env', import.meta.url));
 const BASE = (process.env.BOARD_URL || 'http://127.0.0.1:4400').replace(/\/$/, '');
@@ -66,6 +66,17 @@ async function main() {
       await patchTicket(t, { ...patch, qaChecks });
       return appendLog(id, { who: 'qa', kind: 'qa_report', text: file(opt('report')) });
     }
+    case 'ideas': {
+      const t = await ticket(id);
+      const verdict = need(opt('verdict'), '--verdict ship|push');
+      await patchTicket(t, ideasDone(t, verdict));
+      return appendLog(id, { who: 'idea', kind: 'ideas', text: `Verdict: ${verdict}\n\n${file(opt('report'))}` });
+    }
+    case 'ideas-restore': {
+      const t = await ticket(id);
+      await patchTicket(t, ideasRestore(t));
+      return appendLog(id, { who: 'watcher', kind: 'note', text: opt('text') || 'Marketing review stopped before a verdict.' });
+    }
     case 'block': {
       const t = await ticket(id);
       await patchTicket(t, block(t));
@@ -79,7 +90,7 @@ async function main() {
     case 'log':
       return appendLog(id, { who: opt('who') || 'watcher', kind: opt('kind') || 'note', text: need(opt('text'), '--text') });
     default:
-      console.log('Usage: board show|next|take|built|qa|block|log|assign <ID> [options] (see header of cli/board.mjs)');
+      console.log('Usage: board show|next|take|built|qa|ideas|ideas-restore|block|log|assign <ID> [options] (see header of cli/board.mjs)');
       process.exit(cmd ? 1 : 0);
   }
 }

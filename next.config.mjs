@@ -10,4 +10,7 @@ export default {
   async headers() {
     return [{ source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] }];
   },
+  async rewrites() {
+    return { beforeFiles: [{ source: '/board', destination: '/board/index.html' }] };
+  },
 };

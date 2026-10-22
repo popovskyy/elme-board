@@ -11,7 +11,7 @@ loadEnv(new URL('../.env.local', import.meta.url));
 loadEnv(new URL('../.env', import.meta.url));
 const BASE = (process.env.BOARD_URL || 'http://127.0.0.1:4400').replace(/\/$/, '');
 const REPO = process.env.REPO_DIR || '/home/romanod/Documents/BartGroup/elme-hyva';
-const ROLES = { fe: 'fe-engineer', be: 'be-engineer', qa: 'qa-engineer' };
+const ROLES = { fe: 'fe-engineer', be: 'be-engineer', qa: 'qa-engineer', idea: 'idea-designer' };
 const POLL_MS = 15_000;
 const BUSY_POLL_MS = 5_000;
 const HEARTBEAT_MS = 30_000;
@@ -122,16 +122,25 @@ async function start(t, runner) {
   } else {
     git(['checkout', 'main']);
   }
-  await cli(['take', t.id, '--runner', runner, ...(role === 'qa' ? [] : ['--branch', branch])]);
+  const branchArgs = (role === 'fe' || role === 'be') && branch ? ['--branch', branch] : [];
+  await cli(['take', t.id, '--runner', runner, ...branchArgs]);
 
   const prompt = buildPrompt(t, role, runner, branch, board);
   const extra = (runner === 'claude' ? process.env.CLAUDE_FLAGS : process.env.CURSOR_FLAGS) || '';
-  const extraArgs = extra.trim() ? extra.trim().split(/\s+/) : [];
+  const extraArgs = extra.trim() ? extra.trim().split(/\s+/).filter(Boolean) : [];
+  // Claude: `claude -p "<prompt>"` (-p takes the prompt string).
+  // Cursor: `cursor-agent -p --force --trust -- <prompt>`
+  //   -p is boolean --print; prompt is positional AFTER `--` so a leading `---`
+  //   in the role file is not parsed as CLI flags (was causing instant exit 1).
   const [cmd, args] = runner === 'claude'
     ? ['claude', ['-p', prompt, ...extraArgs]]
-    : ['cursor-agent', ['-p', prompt, ...extraArgs]];
+    : ['cursor-agent', ['-p', '--force', '--trust', '--workspace', REPO, ...extraArgs, '--', prompt]];
+  const model = modelOf(extraArgs) || (runner === 'cursor' ? 'Auto' : 'Claude Code default');
+  console.log(`runner: spawning ${cmd} for ${t.id} (${runner}, ${model})`);
   const child = spawn(cmd, args, { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
-  const run = await api('/api/runs', { method: 'POST', body: { ticketId: t.id, runner, role, pid: child.pid } });
+  const run = await api('/api/runs', { method: 'POST', body: { ticketId: t.id, runner, role, pid: child.pid, branch: branch || null, model } });
+  await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text',
+    `PC started \`${cmd}\` as the ${ROLES[role]} on branch \`${branch || 'main'}\`, model ${model}.`]).catch(warn);
   busy = { ticketId: t.id, runId: run.id, child };
 
   const lines = [];
@@ -143,12 +152,14 @@ async function start(t, runner) {
   child.on('exit', async (code, signal) => {
     clearInterval(flush);
     const stopped = signal === 'SIGTERM' || signal === 'SIGKILL';
-    await api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines, endedAt: Date.now(), status: stopped ? 'stopped' : code === 0 ? 'done' : 'failed' } }).catch(warn);
+    await api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines, endedAt: Date.now(), exitCode: code, status: stopped ? 'stopped' : code === 0 ? 'done' : 'failed' } }).catch(warn);
     const latest = await api('/api/board').catch(() => null);
     const now = latest?.tickets?.[t.id];
     if (now && now.waiting && now.holder === role) {
       const why = stopped ? 'Stopped from the board.' : `Agent ended without a report (exit ${code}).`;
-      await cli(['block', t.id, '--question', `${why} Last lines:\n\n${lines.slice(-15).join('\n')}`]).catch(warn);
+      const tail = lines.slice(-15).join('\n');
+      if (role === 'idea') await cli(['ideas-restore', t.id, '--text', `${why}\n\n${tail}`]).catch(warn);
+      else await cli(['block', t.id, '--question', `${why} Last lines:\n\n${tail}`]).catch(warn);
     }
     writeBoardMd(latest).catch(warn);
     busy = null;
@@ -161,9 +172,10 @@ async function checkStop() {
 }
 
 function preflight(t, board) {
+  if (git(['status', '--porcelain', '--untracked-files=no']).trim()) return 'The elme-hyva working tree has uncommitted changes. Commit or stash them?';
+  if (t.holder === 'idea') return null;
   try { if (!execFileSync('docker', ['ps', '--format', '{{.Names}}']).toString().includes('elme_php')) return 'Docker stack is down. Start it?'; }
   catch { return 'Docker is not available on the PC.'; }
-  if (git(['status', '--porcelain', '--untracked-files=no']).trim()) return 'The elme-hyva working tree has uncommitted changes. Commit or stash them?';
   const tickets = board?.tickets || {};
   const decisions = board?.decisions || {};
   const need = t.kind === 'UX' ? (t.extends || []) : (t.deps || []);
@@ -194,8 +206,10 @@ function buildPrompt(t, role, runner, branch, board) {
     `\n\n# Reporting\nReport through the board CLI, then stop:\n` +
       (role === 'qa'
         ? `node .roadmap/app/cli/board.mjs qa ${t.id} --verdict passed|failed --checks '<json>' --report <file>`
-        : `node .roadmap/app/cli/board.mjs built ${t.id} --commits "<shas>" --summary <file>`) +
-      `\nIf blocked: node .roadmap/app/cli/board.mjs block ${t.id} --question "<one question for Roman>"` +
+        : role === 'idea'
+          ? `node .roadmap/app/cli/board.mjs ideas ${t.id} --verdict ship|push --report <file>\nDo not edit code, commit, merge, or block. ship = leave this screen. push = it still feels like a static catalogue and the report says what to change.`
+          : `node .roadmap/app/cli/board.mjs built ${t.id} --commits "<shas>" --summary <file>`) +
+      (role === 'idea' ? '' : `\nIf blocked: node .roadmap/app/cli/board.mjs block ${t.id} --question "<one question for Roman>"`) +
       `\nDo not merge, push, or mark Done — Roman presses Done on the board; the PC runner merges then.`,
   ].join('\n');
 }
@@ -236,6 +250,11 @@ function existsBranch(b) { try { git(['rev-parse', '--verify', '--quiet', b]); r
 function hasRemote(name) {
   try { return git(['remote']).split('\n').map((s) => s.trim()).includes(name); }
   catch { return false; }
+}
+function modelOf(args) {
+  const i = args.findIndex((a) => a === '--model' || a.startsWith('--model='));
+  if (i < 0) return null;
+  return args[i].includes('=') ? args[i].split('=')[1] : args[i + 1] || null;
 }
 function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').split('-').filter(Boolean).slice(0, 4).join('-'); }
 function warn(e) { console.warn(`runner: ${e.message || e}`); }
