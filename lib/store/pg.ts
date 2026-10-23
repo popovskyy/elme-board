@@ -77,6 +77,40 @@ export class PgStore implements Store {
     return board;
   }
 
+  async readLight(): Promise<Omit<Board, 'log'> & { log?: undefined }> {
+    // Skip ticket_log — full logs on every 5s poll burned the Neon 5 GB transfer quota.
+    const [tickets, decisions, runs, status] = await Promise.all([
+      this.q<{ id: string; body: Ticket; version: number }>('select id, body, version from tickets'),
+      this.q<{ id: string; body: Decision; version: number }>('select id, body, version from decisions'),
+      this.q<{ id: string; body: Run; version: number }>(
+        `select id, body, version from runs
+         where coalesce((body->>'endedAt')::bigint, 0) = 0
+            or coalesce((body->>'endedAt')::bigint, 0) > $1
+         order by created_at desc
+         limit 15`,
+        [Date.now() - 2 * 60 * 60 * 1000],
+      ),
+      this.q<{ last_seen_at: Date; host: string; busy_with: string | null }>(
+        'select last_seen_at, host, busy_with from runner_status where id = 1',
+      ),
+    ]);
+    const board: Omit<Board, 'log'> = { tickets: {}, decisions: {}, runs: {}, runnerStatus: null };
+    for (const r of tickets.rows) board.tickets[r.id] = { ...r.body, id: r.id, version: r.version };
+    for (const r of decisions.rows) board.decisions[r.id] = { ...r.body, id: r.id, version: r.version };
+    for (const r of runs.rows) {
+      const body = r.body;
+      board.runs[r.id] = {
+        ...body,
+        id: r.id,
+        version: r.version,
+        lastLines: (body.lastLines || []).slice(-20),
+      };
+    }
+    const s = status.rows[0];
+    if (s) board.runnerStatus = { lastSeenAt: +new Date(s.last_seen_at), host: s.host, busyWith: s.busy_with };
+    return board;
+  }
+
   async patchTicket(id: string, patch: Partial<Ticket>, ifVersion?: number): Promise<Ticket> {
     await this.ready;
     const client = await this.pool.connect();

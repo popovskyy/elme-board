@@ -225,7 +225,8 @@ async function startInner(t, runner) {
   child.on('error', (e) => { push(`spawn ${cmd}: ${e.message}`); warn(`spawn ${cmd}: ${e.message}`); });
   if (runner === 'claude') { child.stdin.on('error', () => {}); child.stdin.end(prompt); }
   const deadline = setTimeout(() => { busy && (busy.timedOut = true); killTree(child); }, MAX_RUN_MS);
-  const flush = setInterval(() => api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines } }).catch(warn), 3000);
+  // Only ship the tail — full agent transcripts in every PATCH ate Neon transfer.
+  const flush = setInterval(() => api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines.slice(-40) } }).catch(warn), 5000);
   api(`/api/runs/${run.id}`, { method: 'PATCH', body: { pid: child.pid } }).catch(warn);
   cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text',
     `PC started \`${cmd}\` as the ${ROLES[role]} on branch \`${branch || 'main'}\`, model ${model}.`]).catch(warn);

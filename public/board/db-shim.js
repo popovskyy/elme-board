@@ -1,7 +1,8 @@
 // Gives the board page (written for the claude.ai artifact `db` capability) the same
 // `window.claude.use('db')` surface, backed by this app's API with polling.
 (() => {
-  const POLL_MS = 5000;
+  // 15s idle poll — was 5s and pulled full logs; that burned Neon’s 5 GB transfer quota.
+  const POLL_MS = 15000;
   const api = async (path, opts = {}) => {
     const res = await fetch(path, { ...opts, headers: { 'content-type': 'application/json', ...(opts.headers || {}) }, cache: 'no-store' });
     const body = await res.json().catch(() => ({}));

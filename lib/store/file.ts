@@ -14,6 +14,20 @@ export class FileStore implements Store {
     return { tickets: {}, decisions: {}, log: {}, runs: {}, runnerStatus: null, ...raw };
   }
 
+  async readLight(): Promise<Omit<Board, 'log'> & { log?: undefined }> {
+    const board = await this.read();
+    const runs: Record<string, Run> = {};
+    for (const [id, run] of Object.entries(board.runs || {})) {
+      runs[id] = { ...run, lastLines: (run.lastLines || []).slice(-20) };
+    }
+    return {
+      tickets: board.tickets,
+      decisions: board.decisions,
+      runs,
+      runnerStatus: board.runnerStatus,
+    };
+  }
+
   private write<T>(fn: (b: Board) => T): Promise<T> {
     const job = this.queue.then(async () => {
       const board = await this.read();

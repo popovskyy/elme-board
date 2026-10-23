@@ -93,7 +93,13 @@ export class ConflictError extends Error {
 export class NotFoundError extends Error {}
 
 export interface Store {
+  /** Full board including every ticket_log — avoid on the 5s poll (burns Neon transfer). */
   read(): Promise<Board>;
+  /**
+   * Poll payload: tickets + decisions + runner + recent runs (lastLines truncated).
+   * Logs stay on GET /api/log/:id only.
+   */
+  readLight(): Promise<Omit<Board, 'log'> & { log?: undefined }>;
   patchTicket(id: string, patch: Partial<Ticket>, ifVersion?: number): Promise<Ticket>;
   patchDecision(id: string, patch: Partial<Decision>, ifVersion?: number): Promise<Decision>;
   getLog(id: string): Promise<LogDoc | null>;
