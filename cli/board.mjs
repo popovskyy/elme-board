@@ -8,6 +8,7 @@
 //   board built FE-02 --commits "a1b2c3 d4e5f6" --summary summary.md
 //   board qa FE-02 --verdict passed --checks '[{"i":0,"state":"passed"}]' --report report.md
 //   board block FE-02 --question "Which menu source, D3?"
+//   board decide D3 --chosen "Snowdog Menu (native Hyvä)"
 //   board log FE-02 --who fe --kind note --text "…"
 import { readFileSync, existsSync } from 'node:fs';
 import { assign, block, handToQa, qaPassed, qaFailed, ideasDone, ideasRestore, seoDone } from '../lib/logic.mjs';
@@ -96,10 +97,24 @@ async function main() {
       await patchTicket(t, { ...assign(t, need(opt('to'), '--to fe|be|qa')), runner: opt('runner') ?? t.runner ?? 'claude' });
       return;
     }
+    case 'decide': {
+      const chosen = need(opt('chosen'), '--chosen');
+      const board = await api('/api/board');
+      const d = board.decisions?.[id];
+      if (!d) throw new Error(`No decision ${id}`);
+      const next = await api(`/api/decisions/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          patch: { status: 'decided', chosen },
+          ifVersion: d.version ?? 1,
+        }),
+      });
+      return print(next);
+    }
     case 'log':
       return appendLog(id, { who: opt('who') || 'watcher', kind: opt('kind') || 'note', text: need(opt('text'), '--text') });
     default:
-      console.log('Usage: board show|next|take|built|qa|ideas|ideas-restore|seo|block|log|assign <ID> [options] (see header of cli/board.mjs)');
+      console.log('Usage: board show|next|take|built|qa|ideas|ideas-restore|seo|block|decide|log|assign <ID> [options] (see header of cli/board.mjs)');
       process.exit(cmd ? 1 : 0);
   }
 }

@@ -651,15 +651,34 @@ function renderKanban() {
   }).join('')}</div>`;
 }
 
+function decisionOptions(d) {
+  return String(d.options || '').split(/\s*·\s*/).map((s) => s.trim()).filter(Boolean);
+}
+
+function renderDecideControls(d) {
+  if (d.status === 'decided') {
+    return `<div class="prose">${inline(d.chosen)}</div>
+      <div class="btns" style="margin-top:8px"><button class="btn" type="button" data-act="reopen-decision" data-dec="${esc(d.id)}">Change</button></div>`;
+  }
+  const opts = decisionOptions(d).map((o) =>
+    `<button class="btn" type="button" data-act="pick-decision" data-dec="${esc(d.id)}" data-chosen="${esc(o)}">${esc(o)}</button>`
+  ).join('');
+  return `<div class="prose" style="margin-bottom:8px">${inline(d.options)}</div>
+    <div class="btns" style="flex-wrap:wrap;gap:6px">${opts}</div>
+    <label for="dec-${esc(d.id)}" style="display:block;margin-top:10px">Or write your own</label>
+    <textarea id="dec-${esc(d.id)}" rows="2" placeholder="Chosen option…"></textarea>
+    <div class="btns" style="margin-top:8px"><button class="btn primary" type="button" data-act="write-decision" data-dec="${esc(d.id)}">${ico('check')}Decide</button></div>`;
+}
+
 function renderDecisions() {
   const list = [...state.decisions.values()].sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
   const st = (d) => d.status === 'decided' ? '<span class="pill" style="background:var(--st-done)">Decided</span>' : '<span class="pill" style="background:var(--st-progress)">Open</span>';
   if (narrow.matches) return `<div class="mlist">${list.map((d) => `<div class="mitem" style="--gc:var(${d.status === 'decided' ? '--st-done' : '--st-progress'})">
     <div class="r1"><span class="mono">${esc(d.id)}</span>${st(d)}</div><div class="ttl">${esc(d.title)}</div>
-    <div class="prose">${inline(d.status === 'decided' ? d.chosen : d.options)}</div><div class="r3">Affects ${esc(d.affects)}</div></div>`).join('')}</div>`;
+    ${renderDecideControls(d)}<div class="r3">Affects ${esc(d.affects)}</div></div>`).join('')}</div>`;
   return `<div class="tablewrap"><table class="decisions"><thead><tr><th>#</th><th>Decision</th><th>Production today</th><th>Options / chosen</th><th>Status</th><th>Affects</th></tr></thead><tbody>
     ${list.map((d) => `<tr><td class="mono">${esc(d.id)}</td><td><strong>${esc(d.title)}</strong></td><td>${inline(d.prod)}</td>
-      <td>${inline(d.status === 'decided' ? d.chosen : d.options)}</td>
+      <td>${renderDecideControls(d)}</td>
       <td>${d.status === 'decided' ? '<span class="pill" style="background:var(--st-done)">Decided</span>' : '<span class="pill" style="background:var(--st-progress)">Open</span>'}</td>
       <td>${esc(d.affects)}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -991,7 +1010,41 @@ $('#counters').addEventListener('click', (e) => {
   if (state.view === 'decisions') document.querySelector('.tabs [data-view="table"]').click(); else render();
 });
 narrow.addEventListener('change', render);
+async function decide(id, chosen) {
+  const d = state.decisions.get(id);
+  if (!d) return toast(`No decision ${id}`);
+  const text = String(chosen || '').trim();
+  if (!text) return toast('Write or pick an option first.');
+  try {
+    await db.doc(`decisions/${id}`).update({ status: 'decided', chosen: text });
+    state.decisions.set(id, { ...d, status: 'decided', chosen: text, version: (d.version ?? 1) + 1 });
+    render();
+    toast(`${id}: decided`);
+  } catch (err) { toast(err.message || 'Could not save decision'); }
+}
+
+async function reopenDecision(id) {
+  const d = state.decisions.get(id);
+  if (!d) return;
+  try {
+    await db.doc(`decisions/${id}`).update({ status: 'open', chosen: null });
+    state.decisions.set(id, { ...d, status: 'open', chosen: null, version: (d.version ?? 1) + 1 });
+    render();
+    toast(`${id}: open again`);
+  } catch (err) { toast(err.message || 'Could not reopen decision'); }
+}
+
 $('#view').addEventListener('click', (e) => {
+  const actBtn = e.target.closest('[data-act][data-dec]');
+  if (actBtn) {
+    e.preventDefault();
+    const id = actBtn.dataset.dec;
+    if (actBtn.dataset.act === 'pick-decision') return decide(id, actBtn.dataset.chosen);
+    if (actBtn.dataset.act === 'write-decision') return decide(id, document.getElementById('dec-' + id)?.value);
+    if (actBtn.dataset.act === 'reopen-decision') return reopenDecision(id);
+    return;
+  }
+  if (e.target.closest('textarea, input, label, .btns')) return;
   const j = e.target.closest('[data-jump]');
   if (j) { document.getElementById('col-' + j.dataset.jump)?.closest('.col').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', inline: 'center', block: 'nearest' }); return; }
   const el = e.target.closest('[data-id]'); if (el) openPanel(el.dataset.id);

@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { Board, ConflictError, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
+import { Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
 
 // Local JSON store: one file, atomic writes (tmp + rename), one write at a time.
 // Only for local development; Vercel needs the Postgres store.
@@ -36,6 +36,17 @@ export class FileStore implements Store {
       if (ifVersion !== undefined && ifVersion !== v) throw new ConflictError(v);
       b.tickets[id] = { ...t, ...patch, id, version: v + 1 };
       return b.tickets[id];
+    });
+  }
+
+  patchDecision(id: string, patch: Partial<Decision>, ifVersion?: number) {
+    return this.write((b) => {
+      const d = b.decisions[id];
+      if (!d) throw new NotFoundError(`No decision ${id}`);
+      const v = d.version ?? 1;
+      if (ifVersion !== undefined && ifVersion !== v) throw new ConflictError(v);
+      b.decisions[id] = { ...d, ...patch, id, version: v + 1 };
+      return b.decisions[id];
     });
   }
 

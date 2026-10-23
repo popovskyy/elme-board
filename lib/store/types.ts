@@ -95,6 +95,7 @@ export class NotFoundError extends Error {}
 export interface Store {
   read(): Promise<Board>;
   patchTicket(id: string, patch: Partial<Ticket>, ifVersion?: number): Promise<Ticket>;
+  patchDecision(id: string, patch: Partial<Decision>, ifVersion?: number): Promise<Decision>;
   getLog(id: string): Promise<LogDoc | null>;
   setLog(id: string, doc: LogDoc, ifVersion?: number): Promise<LogDoc>;
   putRun(run: Run): Promise<Run>;

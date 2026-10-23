@@ -56,6 +56,11 @@
         update: async (patch) => { await api(`/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ patch }) }); last = ''; poll(); },
       };
     }
+    if (col === 'decisions') {
+      return {
+        update: async (patch) => { await api(`/api/decisions/${id}`, { method: 'PATCH', body: JSON.stringify({ patch }) }); last = ''; poll(); },
+      };
+    }
     if (col === 'log') {
       const get = async () => {
         const d = await api(`/api/log/${id}`);

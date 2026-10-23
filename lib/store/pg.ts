@@ -101,6 +101,30 @@ export class PgStore implements Store {
     }
   }
 
+  async patchDecision(id: string, patch: Partial<Decision>, ifVersion?: number): Promise<Decision> {
+    await this.ready;
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const cur = await client.query<{ body: Decision; version: number }>('select body, version from decisions where id = $1 for update', [id]);
+      if (!cur.rowCount) throw new NotFoundError(`No decision ${id}`);
+      const v = cur.rows[0].version;
+      if (ifVersion !== undefined && ifVersion !== v) throw new ConflictError(v);
+      const next: Decision = { ...cur.rows[0].body, ...patch, id, version: v + 1 };
+      await client.query(
+        'update decisions set body = $2::jsonb, version = $3 where id = $1',
+        [id, JSON.stringify(next), v + 1],
+      );
+      await client.query('commit');
+      return next;
+    } catch (e) {
+      await client.query('rollback');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
   async getLog(id: string): Promise<LogDoc | null> {
     const r = await this.q<{ entries: LogDoc['entries']; version: number }>('select entries, version from ticket_log where ticket_id = $1', [id]);
     return r.rows[0] ? { entries: r.rows[0].entries || [], version: r.rows[0].version } : null;
