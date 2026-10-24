@@ -225,4 +225,40 @@ export class PgStore implements Store {
       [status.lastSeenAt, status.host, status.busyWith],
     );
   }
+
+  async getTicket(id: string): Promise<Ticket | null> {
+    const r = await this.q<{ body: Ticket; version: number }>('select body, version from tickets where id = $1', [id]);
+    return r.rows[0] ? { ...r.rows[0].body, id, version: r.rows[0].version } : null;
+  }
+
+  async getRun(id: string): Promise<Run | null> {
+    const r = await this.q<{ body: Run; version: number }>('select body, version from runs where id = $1::uuid', [id]);
+    return r.rows[0] ? { ...r.rows[0].body, id, version: r.rows[0].version } : null;
+  }
+
+  async waitingTickets(runner: string): Promise<Ticket[]> {
+    const r = await this.q<{ id: string; body: Ticket; version: number }>(
+      `select id, body, version from tickets
+       where (body->>'waiting')::boolean is true and coalesce(body->>'runner', 'claude') = $1`, [runner]);
+    return r.rows.map((x) => ({ ...x.body, id: x.id, version: x.version }));
+  }
+
+  async mergeTickets(): Promise<Ticket[]> {
+    const r = await this.q<{ id: string; body: Ticket; version: number }>(
+      `select id, body, version from tickets
+       where body->>'status' = 'done' and (body->>'mergeRequested')::boolean is true`);
+    return r.rows.map((x) => ({ ...x.body, id: x.id, version: x.version }));
+  }
+
+  async boardSig(): Promise<string> {
+    const r = await this.q<{ sig: string }>(
+      `select (select coalesce(sum(version), 0) || '.' || count(*) from tickets) || '-' ||
+              (select coalesce(sum(version), 0) || '.' || count(*) from decisions) as sig`);
+    return r.rows[0].sig;
+  }
+
+  async readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>> {
+    const light = await this.readLight();
+    return { runs: light.runs, runnerStatus: light.runnerStatus };
+  }
 }

@@ -65,9 +65,9 @@ async function loop() {
 }
 
 async function mergeNext() {
-  const board = await api('/api/board');
-  const pending = Object.values(board.tickets || {})
-    .filter((t) => t.status === 'done' && t.mergeRequested && t.branch && t.branch !== 'main')
+  const { tickets } = await api('/api/runner/merge'); // only done + mergeRequested rows, not the whole board
+  const pending = (tickets || [])
+    .filter((t) => t.branch && t.branch !== 'main')
     .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
   if (!pending.length) return false;
   const t = pending[0];
@@ -189,7 +189,9 @@ async function startInner(t, runner) {
     await api(`/api/tickets/${t.id}`, { method: 'PATCH', body: { patch: { stashFirst: false, skipChecks: false } } }).catch(warn);
   }
 
-  let prompt = buildPrompt(t, role, runner, branch, board);
+  // Logs are not on /api/board (transfer quota); the agent still needs Roman's answers and bug notes.
+  const logDoc = await api(`/api/log/${t.id}`).catch(() => ({ entries: [] }));
+  let prompt = buildPrompt(t, role, runner, branch, { ...board, log: { [t.id]: logDoc } });
   if (conflicts.length) {
     prompt += `\n\n# Merge in progress (do this first)\nThe runner merged \`main\` into \`${branch}\` and these files conflict: ${conflicts.join(', ')}.\n` +
       'Resolve them: keep main\'s version for anything outside this ticket, keep this ticket\'s work where it is the ticket\'s scope. ' +
@@ -264,8 +266,8 @@ async function startInner(t, runner) {
 }
 
 async function checkStop() {
-  const board = await api('/api/board');
-  if (board.runs?.[busy.runId]?.stopRequested) killTree(busy.child);
+  const run = await api(`/api/runs/${busy.runId}`); // one row every 5 s, not the board
+  if (run?.stopRequested) killTree(busy.child);
 }
 
 // Returns { code, text } when the ticket cannot start, else null. The code picks the buttons on the board.

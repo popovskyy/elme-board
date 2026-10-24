@@ -98,4 +98,22 @@ export class FileStore implements Store {
       b.runnerStatus = status;
     });
   }
+
+  async getTicket(id: string) { return (await this.read()).tickets[id] ?? null; }
+  async getRun(id: string) { return (await this.read()).runs[id] ?? null; }
+  async waitingTickets(runner: string) {
+    return Object.values((await this.read()).tickets).filter((t) => t.waiting && (t.runner ?? 'claude') === runner);
+  }
+  async mergeTickets() {
+    return Object.values((await this.read()).tickets).filter((t) => t.status === 'done' && t.mergeRequested);
+  }
+  async boardSig() {
+    const b = await this.read();
+    const sum = (o: Record<string, { version?: number }>) => Object.values(o).reduce((a, x) => a + (x.version ?? 1), 0) + '.' + Object.keys(o).length;
+    return `${sum(b.tickets)}-${sum(b.decisions)}`;
+  }
+  async readRuntime() {
+    const light = await this.readLight();
+    return { runs: light.runs, runnerStatus: light.runnerStatus };
+  }
 }

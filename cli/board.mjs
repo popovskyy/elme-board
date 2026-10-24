@@ -130,10 +130,7 @@ async function api(path, init = {}) {
 }
 async function ticket(tid) {
   need(tid, 'ticket id');
-  const board = await api('/api/board');
-  const t = board.tickets[tid];
-  if (!t) throw new Error(`No ticket ${tid}`);
-  return t;
+  return api(`/api/tickets/${tid}`); // one row, not the whole board
 }
 function patchTicket(t, patch) {
   return api(`/api/tickets/${t.id}`, { method: 'PATCH', body: JSON.stringify({ patch, ifVersion: t.version ?? 1 }) });

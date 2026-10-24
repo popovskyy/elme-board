@@ -107,4 +107,13 @@ export interface Store {
   putRun(run: Run): Promise<Run>;
   patchRun(id: string, patch: Partial<Run>): Promise<Run>;
   heartbeat(status: RunnerStatus): Promise<void>;
+  /** Cheap reads for pollers (runner, CLI, page): one row or a filtered few, never the whole board. */
+  getTicket(id: string): Promise<Ticket | null>;
+  getRun(id: string): Promise<Run | null>;
+  waitingTickets(runner: Runner): Promise<Ticket[]>;
+  mergeTickets(): Promise<Ticket[]>;
+  /** Changes whenever any ticket or decision is written; lets the page skip unchanged polls. */
+  boardSig(): Promise<string>;
+  /** Active and recently ended runs (lastLines trimmed) plus the runner heartbeat. */
+  readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>>;
 }

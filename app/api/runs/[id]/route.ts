@@ -1,7 +1,20 @@
 import { handle, requireToken } from '@/lib/http';
-import { getStore, Run } from '@/lib/store';
+import { getStore, NotFoundError, Run } from '@/lib/store';
 
 type Ctx = { params: Promise<{ id: string }> };
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: Request, { params }: Ctx) {
+  const denied = requireToken(req);
+  if (denied) return denied;
+  const { id } = await params;
+  return handle(async () => {
+    const r = await getStore().getRun(id);
+    if (!r) throw new NotFoundError(`No run ${id}`);
+    return r;
+  });
+}
 
 // Runner: status, lastLines, endedAt. Page: { stopRequested: true } (Stop button).
 export async function PATCH(req: Request, { params }: Ctx) {

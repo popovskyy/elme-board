@@ -22,10 +22,10 @@
   async function poll() {
     if (document.hidden) return;
     try {
-      const board = await api('/api/board');
-      const sig = JSON.stringify([board.tickets, board.decisions]);
-      if (sig !== last) {
-        last = sig;
+      // `since` = the server's change signature from the last poll: unchanged boards come back without tickets.
+      const board = await api(`/api/board${last ? `?since=${encodeURIComponent(last)}` : ''}`);
+      if (!board.unchanged) {
+        last = board.sig || '';
         listeners.tickets.forEach((fn) => fn(snapOf(board.tickets)));
         listeners.decisions.forEach((fn) => fn(snapOf(board.decisions)));
       }
