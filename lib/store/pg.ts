@@ -1,5 +1,6 @@
 import pg from 'pg';
 import {
+  buildTicket, NewTicket, nextId,
   Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket,
 } from './types';
 
@@ -260,5 +261,28 @@ export class PgStore implements Store {
   async readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>> {
     const light = await this.readLight();
     return { runs: light.runs, runnerStatus: light.runnerStatus };
+  }
+
+  async createTicket(input: NewTicket): Promise<Ticket> {
+    await this.ready;
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('lock table tickets in share row exclusive mode'); // two creates never get the same id
+      const r = await client.query<{ id: string; seq: number | null; ord: number | null }>(
+        "select id, (body->>'seq')::float as seq, (body->>'order')::float as ord from tickets");
+      const id = nextId(input.kind, r.rows.map((x) => x.id));
+      const seq = Math.max(0, ...r.rows.map((x) => x.seq || 0)) + 1;
+      const order = Math.max(0, ...r.rows.map((x) => x.ord || 0)) + 1;
+      const t = buildTicket(id, input, seq, order);
+      await client.query('insert into tickets (id, body, version) values ($1, $2::jsonb, 1)', [id, JSON.stringify(t)]);
+      await client.query('commit');
+      return { ...t, version: 1 };
+    } catch (e) {
+      await client.query('rollback');
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 }

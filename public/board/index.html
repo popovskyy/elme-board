@@ -38,6 +38,7 @@
   <symbol id="i-monitor" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16v11H4zM9 20h6M12 16v4"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7 7l10 10M17 7 7 17"/></symbol>
   <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.2 13.4 9 19 10.6 13.4 12.2 12 18l-1.4-5.8L5 10.6 10.6 9z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-cursor" viewBox="0 0 24 24"><path fill="currentColor" d="M6 4.5 18.5 12 11.2 13.4 8.6 20z"/></symbol>
 </svg>
 <title>Elme Board</title>
@@ -265,6 +266,17 @@ textarea { width: 100%; min-height: 70px; resize: vertical; background: var(--su
 .empty { color: var(--muted); }
 .tools { display: contents; }
 .tools-toggle { display: none; }
+.new-ticket { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--fg); background: var(--fg); color: var(--on-accent); font-weight: 700; font-size: 14px; }
+.new-ticket:hover { background: var(--accent); border-color: var(--accent); }
+.new-ticket .ico { width: 16px; height: 16px; }
+.form { display: grid; gap: 14px; }
+.form label { display: grid; gap: 6px; font-weight: 700; font-size: 14px; }
+.form label small { font-weight: 400; color: var(--muted); }
+.form input, .form select, .form textarea { font: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 10px 12px; min-height: 46px; width: 100%; }
+.form textarea { min-height: 90px; resize: vertical; }
+.form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.reopen { display: grid; gap: 10px; }
+.reopen h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 html.panel-open, html.panel-open body { overflow: hidden; }
 @media (max-width: 720px) {
   /* Phone: header scrolls away with the page (no sticky block over the first ticket); filters fold behind a button. */
@@ -272,6 +284,9 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .titlerow { flex-wrap: wrap; row-gap: 10px; }
   .pc-status .txt { white-space: nowrap; }
   .wavebar .track { display: none; }
+  .new-ticket span { display: none; }
+  .new-ticket { padding: 8px 12px; }
+  .form .row2 { grid-template-columns: 1fr; }
   .tools-toggle { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: none; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px; }
   .tools-toggle[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .tools-toggle b { min-width: 20px; padding: 0 6px; background: var(--accent); color: var(--on-accent); font-size: 12px; line-height: 20px; text-align: center; }
@@ -370,6 +385,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
     <h1>Elme <span>Board</span></h1>
     <span class="sub">Hyvä port roadmap</span>
     <div class="pc-status" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">Checking PC…</span></div>
+    <button class="new-ticket" id="new-ticket" type="button" aria-label="New ticket"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>New ticket</span></button>
     <button class="tools-toggle" id="tools-toggle" type="button" aria-expanded="false" aria-controls="tools"><svg class="ico" aria-hidden="true"><use href="#i-plan"/></svg><span>Filters</span><b id="tools-count" hidden></b></button>
     <div class="counters" id="counters" aria-live="polite"></div>
   </div>
@@ -401,7 +417,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
 <div class="toast" id="toast" hidden role="status"></div>
 
 <script type="module">
-import { assign, block, answer, done, requestIdeas, buildFromIdeas, devHolder, requestSeo } from '/board/logic.js';
+import { assign, block, answer, done, reopen, requestIdeas, buildFromIdeas, devHolder, requestSeo } from '/board/logic.js';
 
 const STATUS = {
   todo: { label: 'To do', c: '--st-todo' },
@@ -727,6 +743,7 @@ function panelSignature(t) {
   });
 }
 function renderPanel() {
+  if (state.open === NEW_TICKET) return;
   const t = state.tickets.get(state.open);
   const p = $('#panel');
   if (!t) { closePanel(); return; }
@@ -837,8 +854,12 @@ function actions(t) {
     return `${qHtml}${pick}<label for="answer">Your answer</label><textarea id="answer" placeholder="Answer the agent…"></textarea><div class="btns"><button class="btn primary" data-act="answer">${ico('send')}Send answer and continue</button>${rerun()}</div>`;
   }
   if (t.status === 'review') return `${pick}<label for="note">Bug or note for the agent (needed for Back to…)</label><textarea id="note" placeholder="What is wrong, where, how to reproduce…"></textarea><div class="btns"><button class="btn done" data-act="done">${ico('check')}Done</button>${back}</div>${ideaControls(t)}`;
-  if (t.status === 'done' && t.mergeError) return `<div class="question"><h4>Merge into main failed</h4><div class="prose">${md(t.mergeError)}</div></div><div class="btns"><button class="btn primary" data-act="retry-merge">${ico('rerun')}Retry merge</button></div>${pick}${ideaControls(t)}`;
-  if (t.status === 'done') return `${pick}${ideaControls(t)}`;
+  if (t.status === 'done') {
+    const merge = t.mergeError ? `<div class="question"><h4>Merge into main failed</h4><div class="prose">${md(t.mergeError)}</div></div><div class="btns"><button class="btn primary" data-act="retry-merge">${ico('rerun')}Retry merge</button></div>` : '';
+    const dev = devHolder(t);
+    const reopenBtns = (ux ? ['qa'] : ['fe', 'be', 'qa']).map((h) => `<button class="btn${h === dev ? ' primary' : ''}" data-act="reopen" data-h="${h}">${ico('back')}Back to ${HOLDER[h][0]}</button>`).join('');
+    return `${merge}<div class="reopen"><h4>Something to change?</h4><label for="note">Write what to change. The agent gets this note, works on the same branch, then QA runs again.</label><textarea id="note" placeholder="What to change, where, why…"></textarea>${pick}<div class="btns">${reopenBtns}</div></div>${ideaControls(t)}`;
+  }
   if (t.waiting) return `${pick}<p class="empty">${pcOnline() ? 'Queued / running on your PC.' : 'PC offline — starts when the runner comes back.'}</p>`;
   return `${pick}<label for="note">Note for the agent</label><textarea id="note" placeholder="Extra context…"></textarea><div class="btns"><button class="btn" data-act="note">${ico('send')}Add note</button></div>`;
 }
@@ -904,6 +925,10 @@ function wireActions(t) {
           const verb = act === 'rerun' ? 'reran' : 'started';
           await change(t, patch, `Roman ${verb} the ticket with the ${HOLDER[b.dataset.h][2]} (${runner}).${text ? `\n\n${text}` : ''}`, act === 'rerun' && text ? 'answer' : 'log');
         }
+        else if (act === 'reopen') {
+          if (!text) { toast('Write what to change first.'); b.disabled = false; return; }
+          await change(t, { ...reopen(t, b.dataset.h), runner }, text, 'bug');
+        }
         else if (act === 'back') {
           if (!text) { toast('Write the bug first, so the agent knows what to fix.'); b.disabled = false; return; }
           const patch = t.status === 'done' ? { ...assign({ ...t, status: 'review' }, b.dataset.h) } : assign(t, b.dataset.h);
@@ -943,6 +968,68 @@ async function addLog(id, kind, text) {
   entries.push({ at: Date.now(), who: 'roman', kind, text });
   await ref.set({ entries });
 }
+const NEW_TICKET = '__new__';
+function openNewTicket() {
+  closePanel();
+  state.open = NEW_TICKET;
+  const all = [...state.tickets.values()];
+  const waves = [...new Map(all.filter((t) => t.wave).sort((a, b) => a.wave - b.wave).map((t) => [t.wave, t.waveName])).entries()];
+  const epics = [...new Set(all.sort((a, b) => (a.order || 0) - (b.order || 0)).map((t) => t.epic))];
+  const p = $('#panel');
+  p.innerHTML = `
+    <div class="ph"><div class="row1"><h3>New ticket</h3><button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
+    <div class="pb"><form class="form" id="new-form" novalidate>
+      <label>Title<input id="nt-title" required maxlength="160" placeholder="e.g. Custom select with search"></label>
+      <div class="row2">
+        <label>Kind<select id="nt-kind"><option>FE</option><option>BE</option><option>UX</option></select></label>
+        <label>Run with<select id="nt-runner"><option value="claude"${preferredRunner() === 'claude' ? ' selected' : ''}>Claude</option><option value="cursor"${preferredRunner() === 'cursor' ? ' selected' : ''}>Cursor</option></select></label>
+      </div>
+      <div class="row2">
+        <label>Plan stage<select id="nt-wave">${waves.map(([w, n]) => `<option value="${w}">${w} · ${esc(n)}</option>`).join('')}</select></label>
+        <label>Epic<select id="nt-epic">${epics.map((e) => `<option>${esc(e)}</option>`).join('')}</select></label>
+      </div>
+      <label>Depends on <small>ticket ids, comma separated</small><input id="nt-deps" placeholder="FE-02, FE-03" autocapitalize="characters"></label>
+      <label>Scope <small>what the agent builds</small><textarea id="nt-scope" rows="5"></textarea></label>
+      <label>Ref <small>old code, URLs, files (optional)</small><textarea id="nt-ref" rows="2"></textarea></label>
+      <label>QA checks <small>one per line</small><textarea id="nt-qa" rows="4"></textarea></label>
+    </form></div>
+    <div class="actions"><div class="btns">
+      <button class="btn primary" data-new="start">${ico('play')}Create and start</button>
+      <button class="btn" data-new="create">${ico('plus')}Create</button>
+    </div></div>`;
+  p.hidden = false; $('#scrim').hidden = false;
+  document.documentElement.classList.add('panel-open');
+  $('#close').onclick = closePanel;
+  $('#nt-title').focus();
+  p.querySelectorAll('[data-new]').forEach((b) => b.onclick = async () => {
+    const title = $('#nt-title').value.trim();
+    if (!title) { toast('Give the ticket a title.'); $('#nt-title').focus(); return; }
+    const w = Number($('#nt-wave').value);
+    const input = {
+      title, kind: $('#nt-kind').value, epic: $('#nt-epic').value, wave: w, waveName: waves.find(([x]) => x === w)?.[1],
+      runner: $('#nt-runner').value,
+      deps: $('#nt-deps').value.toUpperCase().split(/[\s,]+/).filter((x) => /^(FE|BE|UX)-\d+$/.test(x)),
+      scope: $('#nt-scope').value.trim(), ref: $('#nt-ref').value.trim(),
+      qa: $('#nt-qa').value.split('\n').map((x) => x.trim()).filter(Boolean),
+    };
+    try {
+      b.disabled = true;
+      const t = await window.boardCreateTicket(input);
+      await addLog(t.id, 'log', `Roman created the ticket.`);
+      if (b.dataset.new === 'start') {
+        const h = devHolder(t);
+        await db.doc(`tickets/${t.id}`).update({ ...assign(t, h), runner: input.runner, prev: null });
+        await addLog(t.id, 'log', `Roman started the ticket with the ${HOLDER[h][2]} (${input.runner}).`);
+      }
+      toast(`${t.id} created`);
+      state.pendingOpen = t.id;
+      closePanel();
+      await window.boardRefresh?.();
+    } catch (e) { toast(e.message || 'Could not create the ticket.'); b.disabled = false; }
+  });
+}
+$('#new-ticket').onclick = openNewTicket;
+
 function openPanel(id) {
   state.open = id; state.log = null;
   const t0 = state.tickets.get(id);
@@ -1081,7 +1168,10 @@ setInterval(() => {
   state.canWrite = cw !== false;
   let got = 0;
   const ready = () => { if (++got >= 2) $('#notice').hidden = state.tickets.size > 0; if (!state.tickets.size) $('#notice').textContent = 'No tickets yet. Seed the board (npm run seed -- --force).'; };
-  db.collection('tickets').onSnapshot((s) => { state.tickets = new Map(s.docs.map((d) => [d.id, d.data()])); render(); ready(); },
+  db.collection('tickets').onSnapshot((s) => {
+    state.tickets = new Map(s.docs.map((d) => [d.id, d.data()])); render(); ready();
+    if (state.pendingOpen && state.tickets.has(state.pendingOpen)) { const id = state.pendingOpen; state.pendingOpen = null; openPanel(id); }
+  },
     (e) => { $('#notice').hidden = false; $('#notice').textContent = `Tickets could not load (${e.code}). Reload the page.`; });
   db.collection('decisions').onSnapshot((s) => { state.decisions = new Map(s.docs.map((d) => [d.id, d.data()])); render(); ready(); }, () => {});
 })();

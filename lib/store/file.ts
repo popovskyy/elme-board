@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
+import { buildTicket, NewTicket, nextId, Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
 
 // Local JSON store: one file, atomic writes (tmp + rename), one write at a time.
 // Only for local development; Vercel needs the Postgres store.
@@ -115,5 +115,15 @@ export class FileStore implements Store {
   async readRuntime() {
     const light = await this.readLight();
     return { runs: light.runs, runnerStatus: light.runnerStatus };
+  }
+
+  createTicket(input: NewTicket) {
+    return this.write((b) => {
+      const all = Object.values(b.tickets);
+      const id = nextId(input.kind, Object.keys(b.tickets));
+      const t = buildTicket(id, input, Math.max(0, ...all.map((x) => x.seq || 0)) + 1, Math.max(0, ...all.map((x) => x.order || 0)) + 1);
+      b.tickets[id] = { ...t, version: 1 };
+      return b.tickets[id];
+    });
   }
 }

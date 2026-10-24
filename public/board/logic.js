@@ -55,6 +55,19 @@ export function qaFailed(ticket, builder) {
     return { status: 'in_progress', holder: builder, waiting: true, qaVerdict: 'failed', updatedAt: now() };
 }
 
+/** Roman reopens a done ticket with a note: back to a builder (or QA), last round's QA and merge state cleared. */
+export function reopen(ticket, holder) {
+    if (ticket.status !== 'done') throw new Error('Only a done ticket can be reopened');
+    return {
+        ...assign({ ...ticket, status: 'review' }, holder),
+        qaVerdict: null,
+        qaChecks: (ticket.qaChecks || []).map(() => null),
+        mergeRequested: false,
+        mergedAt: null,
+        mergeError: null,
+    };
+}
+
 export function done(ticket) {
     if (ticket.status !== 'review') throw new Error('Only a ticket in review can be done');
     const branch = ticket.branch && ticket.branch !== 'main' ? ticket.branch : null;

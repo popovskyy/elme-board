@@ -116,4 +116,27 @@ export interface Store {
   boardSig(): Promise<string>;
   /** Active and recently ended runs (lastLines trimmed) plus the runner heartbeat. */
   readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>>;
+  /** New ticket from the board; the id is the next free number for its kind (FE-60, BE-01, …). */
+  createTicket(input: NewTicket): Promise<Ticket>;
+}
+
+export type NewTicket = Pick<Ticket, 'title' | 'kind' | 'scope' | 'ref' | 'qa' | 'deps'> & {
+  epic: string; wave?: number; waveName?: string; runner?: Runner;
+};
+
+/** Fills the fields every ticket carries. `seq` puts it last in its wave. */
+export function buildTicket(id: string, input: NewTicket, seq: number, order: number): Ticket {
+  return {
+    id, title: input.title.trim(), kind: input.kind, epic: input.epic, order, seq,
+    wave: input.wave, waveName: input.waveName,
+    deps: input.deps || [], decisions: [], extends: [],
+    scope: input.scope || '', ref: input.ref || '', qa: input.qa || [],
+    status: 'todo', holder: null, waiting: false, prev: null, branch: null,
+    qaVerdict: null, qaChecks: (input.qa || []).map(() => null), updatedAt: Date.now(), runner: input.runner || 'claude',
+  };
+}
+
+export function nextId(kind: string, ids: string[]): string {
+  const n = ids.filter((i) => i.startsWith(`${kind}-`)).map((i) => Number(i.split('-')[1]) || 0);
+  return `${kind}-${String((n.length ? Math.max(...n) : 0) + 1).padStart(2, '0')}`;
 }

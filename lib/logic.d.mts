@@ -10,6 +10,7 @@ export function handToQa(ticket?: Ticket): Patch;
 export function qaPassed(ticket?: Ticket): Patch;
 export function qaFailed(ticket: Ticket, builder: 'fe' | 'be'): Patch;
 export function done(ticket: Ticket): Patch;
+export function reopen(ticket: Ticket, holder: 'fe' | 'be' | 'qa'): Patch;
 export function pickable(tickets: Ticket[]): Ticket | null;
 export function requestSeo(ticket: Ticket, then?: Patch | null): Patch;
 export function seoDone(ticket: Ticket): Patch;
