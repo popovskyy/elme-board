@@ -3,7 +3,7 @@
 // and merges a ticket branch into main when Roman presses Done (mergeRequested).
 // Outbound HTTPS only. Agents still must not merge/push/Done themselves.
 import { spawn, execFileSync } from 'node:child_process';
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { queueCompare } from '../lib/logic.mjs';
@@ -45,6 +45,7 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
     if (busy?.child) {
       killTree(busy.child);
       const sha = busy.builderBranch ? checkpoint(busy.ticketId, busy.builderBranch, 'runner stopped') : null;
+      if (busy.handoff) try { writeRunnerNotes(busy.ticketId, { ...busy.handoff, why: 'runner stopped (PC shutdown or service restart)', sha }); } catch (e) { warn(e); }
       await api(`/api/runs/${busy.runId}`, { method: 'PATCH', body: { status: 'stopped', endedAt: Date.now(), lastLines: [`Runner stopped (PC shutdown or service restart). The ticket stays queued and restarts when the runner is back.${sha ? ` Unfinished work saved as ${sha}.` : ''}`] } }).catch(warn);
     }
     process.exit(0);
@@ -112,6 +113,7 @@ async function mergeNext() {
     const msg = `Merge ${t.id}: ${t.title}`;
     git(['merge', '--no-ff', '-m', msg, t.branch]);
     refreshMagento();
+    archiveHandoff(t.id);
     let pushed = false;
     if (hasOrigin) {
       try {
@@ -252,9 +254,10 @@ async function startInner(t, runner) {
   const child = spawn(cmd, args, { cwd: REPO, stdio: [runner === 'claude' ? 'pipe' : 'ignore', 'pipe', 'pipe'], detached: true });
   // Listeners go on before any await: a fast exit (bad flag, auth) must not be missed, or the runner stays busy forever.
   busy = { ticketId: t.id, runId: run.id, child, builderBranch: (role === 'fe' || role === 'be') ? branch : null };
+  const lines = [];
+  if (HANDOFF_ROLES.includes(role)) busy.handoff = { runner, role, branch, lines };
   // Untracked files that were already there (Roman's own) stay out of a checkpoint commit.
   untrackedAtStart = untracked();
-  const lines = [];
   const push = (l) => { if (l.trim()) lines.push(l.slice(0, 400)); lines.splice(0, Math.max(0, lines.length - 50)); };
   let partial = '';
   const onOut = (buf) => {
@@ -303,6 +306,11 @@ async function startInner(t, runner) {
         // Commit it on the ticket branch so the rerun (same or other tool) continues from it.
         const sha = (role === 'fe' || role === 'be') ? checkpoint(t.id, branch, code) : null;
         const saved = sha ? `\n\nUnfinished work is committed on \`${branch}\` as ${sha}; the rerun continues from it.` : '';
+        // The handoff file tells the next run (either tool) where this one stopped; the board gets a copy.
+        let notes = '';
+        try { notes = writeRunnerNotes(t.id, { runner, role, branch, lines, why: lead, sha }); } catch (e) { warn(e); }
+        await cli(['log', t.id, '--who', 'watcher', '--kind', 'handoff', '--text',
+          notes ? notes.slice(0, 6000) : 'The agent left no handoff notes; the next run gets the runner notes (last output, changed files).']).catch(warn);
         if (limit) limitedAt[runner] = Date.now();
         if (limit && AUTO_SWITCH && !limited(OTHER[runner]) && now) {
           // Ticket stays queued with the same agent role; only the tool changes. The next loop starts it.
@@ -380,6 +388,7 @@ function buildPrompt(t, role, runner, branch, board) {
     `\nDecisions:\n${chosen}`,
     `\nQA items (numbered from 0):\n${(t.qa || []).map((q, i) => `${i}. ${q}`).join('\n')}`,
     `\nRecent log:\n${recent}`,
+    HANDOFF_ROLES.includes(role) ? handoffPrompt(t.id, role) : '',
     `\n\n# Reporting\nReport through the board CLI, then stop:\n` +
       (role === 'qa'
         ? `node .roadmap/app/cli/board.mjs qa ${t.id} --verdict passed|failed --checks '<json>' --report <file>`
@@ -446,6 +455,56 @@ function claudeEvent(line) {
   return out;
 }
 
+// Handoff file per ticket: the agent keeps it current while it works, the runner adds its own notes when a run
+// ends without a report. Lives in .roadmap (git-ignored), so it never reaches the elme-hyva history.
+const HANDOFF_ROLES = ['fe', 'be', 'qa'];
+const RUNNER_MARK = '<!-- runner notes -->';
+// Builder (fe/be) and QA keep separate files, so a QA run does not overwrite the builder's notes.
+const handoffRel = (id, role = 'fe') => `.roadmap/handoff/${id}${role === 'qa' ? '.qa' : ''}.md`;
+const handoffPath = (id, role) => path.join(REPO, handoffRel(id, role));
+function readHandoff(id, role) { try { return readFileSync(handoffPath(id, role), 'utf8'); } catch { return ''; } }
+function handoffPrompt(id, role) {
+  const prev = readHandoff(id, role).trim();
+  const builder = role === 'qa' ? readHandoff(id, 'fe').split(RUNNER_MARK)[0].trim() : '';
+  return `\n\n# Handoff file (write it as you go)
+Path: \`${handoffRel(id, role)}\` (git-ignored, on this PC only). This run can stop at any moment (usage limit, timeout, Stop), and the next run may be the other tool (Claude or Cursor) with none of your context. Keep the file current so it can continue without redoing your work:
+- Write it as soon as you have read the ticket and made a plan.
+- Update it after each finished step and before any long command (build, tests, setup:upgrade, Playwright).
+- Rewrite the sections, do not keep a diary. Under 80 lines, English.
+
+Sections: \`## Goal\` (one line) · \`## Plan\` (\`- [x]\` done / \`- [ ]\` to do, in order) · \`## Decisions\` (what you chose and why, Roman's answers) · \`## Files\` (touched or created, what changed) · \`## State\` (what works, what is broken or half done) · \`## Next\` (the exact next step) · \`## Gotchas\` (traps you hit: commands, caches, quirks).
+Leave everything from \`${RUNNER_MARK}\` down as it is; the runner writes that part.` +
+    (prev ? `\n\n# Handoff from the previous run (read this first, then continue from "Next")\n${prev}` : '') +
+    (builder ? `\n\n# The builder's handoff notes (context only, do not edit that file)\n${builder}` : '');
+}
+/** Replaces the runner part of the handoff file with this run's facts. Returns the agent's part. */
+function writeRunnerNotes(id, { runner, role, branch, lines, why, sha }) {
+  mkdirSync(path.dirname(handoffPath(id, role)), { recursive: true });
+  const agentPart = readHandoff(id, role).split(RUNNER_MARK)[0].trim();
+  let stat = '';
+  try { if (branch && branch !== 'main' && existsBranch('main')) stat = git(['diff', '--stat=100', `main...${branch}`]).trim().split('\n').slice(-20).join('\n'); } catch { /* no diff */ }
+  const fence = (x) => '```\n' + x + '\n```';
+  const notes = [
+    `## Runner notes, ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
+    `${NAME[runner]} ran as the ${ROLES[role]} and stopped: ${why}`,
+    sha ? `Unfinished work is committed as ${sha} on \`${branch}\`.` : '',
+    stat ? `Changed against main:\n${fence(stat)}` : '',
+    lines?.length ? `Last agent output:\n${fence(lines.slice(-25).join('\n'))}` : '',
+  ].filter(Boolean).join('\n\n');
+  writeFileSync(handoffPath(id, role), `${agentPart || `# ${id} handoff\n\nThe agent did not write notes in this run.`}\n\n${RUNNER_MARK}\n${notes}\n`);
+  return agentPart;
+}
+/** Merged into main: keep the notes, out of the way of a reopened ticket's next run. */
+function archiveHandoff(id) {
+  for (const role of ['fe', 'qa']) {
+    try {
+      if (!existsSync(handoffPath(id, role))) continue;
+      const done = path.join(REPO, '.roadmap', 'handoff', 'done');
+      mkdirSync(done, { recursive: true });
+      renameSync(handoffPath(id, role), path.join(done, `${id}${role === 'qa' ? '.qa' : ''}-${Date.now()}.md`));
+    } catch (e) { warn(`handoff ${id}: ${e.message || e}`); }
+  }
+}
 // Builder run ended without a report: commit what it left on the ticket branch (tracked changes and
 // files the run created; .gitignore applies). Only on that branch, never on main. Returns the short sha or null.
 function checkpoint(ticketId, branch, why) {

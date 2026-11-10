@@ -528,6 +528,9 @@ function inline(s) {
 function md(text) {
   const out = []; let list = null;
   for (const line of String(text || '').split('\n')) {
+    const hd = line.match(/^#{1,6}\s+(.*)/);
+    if (hd) { if (list) { out.push(`<ul>${list.join('')}</ul>`); list = null; } out.push(`<p><strong>${inline(hd[1])}</strong></p>`); continue; }
+    if (/^```/.test(line.trim()) || line.trim() === '<!-- runner notes -->') continue;
     const li = line.match(/^\s*[-*] (.*)/);
     if (li) { (list ||= []).push(`<li>${inline(li[1])}</li>`); continue; }
     if (list) { out.push(`<ul>${list.join('')}</ul>`); list = null; }
@@ -899,7 +902,11 @@ function renderPanel() {
   }).join('');
   const ideasReport = latest('ideas');
   const seoReport = latest('seo');
-  const lc = { seo: '--st-qa', question: '--st-blocked', answer: '--h-roman', bug: '--st-blocked', qa_report: '--st-qa', ideas: '--h-roman', log: '--line', note: '--h-roman' };
+  const handoff = latest('handoff');
+  // Shown while the ticket is unfinished: where the last cut-off run stopped (the PC keeps the full file).
+  const handoffHtml = handoff && t.status !== 'done' && (!report || handoff.at > report.at)
+    ? `<section class="sec"><h4>Where the last run stopped</h4><div class="prose">${md(handoff.text)}</div><div class="by empty">${when(handoff.at)} · full notes on the PC in <code>.roadmap/handoff/${esc(t.id)}.md</code></div></section>` : '';
+  const lc = { handoff: '--st-progress', seo: '--st-qa', question: '--st-blocked', answer: '--h-roman', bug: '--st-blocked', qa_report: '--st-qa', ideas: '--h-roman', log: '--line', note: '--h-roman' };
   p.innerHTML = `
     <div class="ph">
       <div class="row1"><h3><span class="mono">${esc(t.id)}</span> ${esc(t.title)}</h3><div class="ph-btns"><button class="close" id="export-one" type="button" aria-label="Export this ticket as CSV" title="Export this ticket as CSV">${ico('download')}</button>${state.canWrite && !t.waiting ? `<button class="close" id="edit" type="button" aria-label="Edit ticket" title="Edit ticket">${ico('pencil')}</button>` : ''}<button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
@@ -913,6 +920,7 @@ function renderPanel() {
     </div>
     <div class="pb">
       ${runLiveHtml(t)}
+      ${handoffHtml}
       ${t.status === 'review' ? changesHtml(t) : ''}
       <section class="sec"><h4>Description</h4><div class="prose">
         ${t.extends?.length ? `<p><strong>Extends:</strong> ${t.extends.map(esc).join(', ')}</p>` : ''}
