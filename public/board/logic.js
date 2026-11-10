@@ -17,6 +17,7 @@ export function assign(ticket, holder) {
         holder,
         waiting: true,
         prev: null,
+        priority: 0,
         updatedAt: now(),
     };
 }
@@ -170,8 +171,62 @@ export function seoDone(ticket) {
     };
 }
 
+/** Queue order, shared by the page and the PC runner: "Run next" (priority) first, then oldest. */
+export function queueCompare(a, b) {
+    return ((b.priority || 0) - (a.priority || 0)) || ((a.updatedAt || 0) - (b.updatedAt || 0));
+}
+
+export function queued(tickets) {
+    return tickets.filter((t) => t.waiting && AGENTS.includes(t.holder) && !t.archived).sort(queueCompare);
+}
+
 export function pickable(tickets) {
-    return tickets
-        .filter((t) => t.waiting && AGENTS.includes(t.holder))
-        .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0))[0] || null;
+    return queued(tickets)[0] || null;
+}
+
+/** Roman moves a queued ticket to the front. */
+export function runNext(ticket, tickets) {
+    if (!ticket.waiting) throw new Error('Ticket is not in the queue');
+    const top = Math.max(0, ...tickets.filter((t) => t.waiting).map((t) => t.priority || 0));
+    return { priority: top + 1 };
+}
+
+/**
+ * Roman takes a ticket off the queue before the PC starts it.
+ * No branch yet: back to To do. With a branch (work exists): blocked with Roman, so Rerun picks up where it was.
+ */
+export function cancelQueue(ticket) {
+    if (!ticket.waiting) throw new Error('Ticket is not in the queue');
+    if (ticket.holder === 'idea') return { ...ideasRestore(ticket), priority: 0 };
+    const target = ticket.holder === 'seo' ? (ticket.prev || { status: ticket.status, holder: null }) : { status: ticket.status, holder: ticket.holder };
+    if (!ticket.branch || !target.holder) return { status: 'todo', holder: null, waiting: false, prev: null, priority: 0, updatedAt: now() };
+    return { status: 'blocked', holder: 'roman', waiting: false, prev: target, priority: 0, updatedAt: now() };
+}
+
+export function archive(ticket) {
+    if (ticket.waiting) throw new Error('An agent is on this ticket; cancel or stop it first');
+    return { archived: true, updatedAt: now() };
+}
+
+export function unarchive() {
+    return { archived: false, updatedAt: now() };
+}
+
+const EDITABLE = ['title', 'scope', 'ref', 'qa', 'deps', 'wave', 'waveName', 'epic', 'kind'];
+
+/** Roman edits a ticket. QA checks keep their state where the item text did not change. */
+export function editTicket(ticket, input) {
+    if (ticket.waiting) throw new Error('An agent is on this ticket; edit it after the run');
+    if (!String(input.title ?? ticket.title).trim()) throw new Error('Title is required');
+    if (input.kind && input.kind !== ticket.kind && ticket.status !== 'todo') throw new Error('Kind can change only before work starts');
+    const patch = {};
+    for (const k of EDITABLE) if (input[k] !== undefined) patch[k] = typeof input[k] === 'string' ? input[k].trim() : input[k];
+    if (patch.qa) {
+        const old = ticket.qa || [];
+        const checks = ticket.qaChecks || [];
+        patch.qa = patch.qa.map((q) => String(q).trim()).filter(Boolean);
+        patch.qaChecks = patch.qa.map((q) => { const i = old.indexOf(q); return i >= 0 ? (checks[i] ?? null) : null; });
+    }
+    if (patch.deps) patch.deps = patch.deps.filter((d) => d && d !== ticket.id);
+    return { ...patch, updatedAt: now() };
 }

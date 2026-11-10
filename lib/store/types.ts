@@ -41,6 +41,12 @@ export type Ticket = {
   resolveConflict?: boolean;
   stashFirst?: boolean;
   skipChecks?: boolean;
+  /** Hidden from every view and never queued. */
+  archived?: boolean;
+  /** "Run next": higher goes first in the PC queue (see queueCompare in lib/logic.mjs). */
+  priority?: number;
+  /** Branch facts the CLI records when the builder reports (board built). */
+  changes?: { commits: string[]; stat: string; at: number } | null;
 };
 
 export type Decision = {

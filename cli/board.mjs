@@ -11,6 +11,7 @@
 //   board decide D3 --chosen "Snowdog Menu (native Hyvä)"
 //   board log FE-02 --who fe --kind note --text "…"
 import { readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { assign, block, handToQa, qaPassed, qaFailed, ideasDone, ideasRestore, seoDone } from '../lib/logic.mjs';
 
 loadEnv(new URL('../.env', import.meta.url));
@@ -52,7 +53,7 @@ async function main() {
       const summary = file(opt('summary'));
       // Log first: if the status write fails, the report is still on the board.
       await appendLog(id, { who: t.holder, kind: 'log', text: `Done, handed to QA. Commits: ${opt('commits') || '—'}\n\n${summary}` });
-      return patchTicket(t, handToQa(t));
+      return patchTicket(t, { ...handToQa(t), changes: branchChanges(t.branch) });
     }
     case 'qa': {
       const t = await ticket(id);
@@ -137,6 +138,17 @@ function patchTicket(t, patch) {
 }
 async function appendLog(tid, entry) {
   await api(`/api/log/${tid}`, { method: 'POST', body: JSON.stringify({ entry: { at: Date.now(), ...entry } }) });
+}
+// Commits and changed files of the ticket branch against main, shown on the board for review.
+function branchChanges(branch) {
+  if (!branch || branch === 'main') return null;
+  const repo = process.env.REPO_DIR || process.cwd();
+  const git = (args) => execFileSync('git', args, { cwd: repo }).toString().trim();
+  try {
+    const commits = git(['log', '--oneline', '--no-merges', `main..${branch}`]).split('\n').filter(Boolean).slice(0, 40);
+    const stat = git(['diff', '--stat=100', `main...${branch}`]).split('\n').slice(-40).join('\n');
+    return { commits, stat, at: Date.now() };
+  } catch { return null; }
 }
 function need(v, what) { if (!v) throw new Error(`missing ${what}`); return v; }
 function file(p) { return p ? readFileSync(p, 'utf8') : ''; }
