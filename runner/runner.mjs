@@ -6,6 +6,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { queueCompare } from '../lib/logic.mjs';
 
 loadEnv(new URL('../.env.local', import.meta.url));
 loadEnv(new URL('../.env', import.meta.url));
@@ -16,6 +17,13 @@ const POLL_MS = 15_000;
 const BUSY_POLL_MS = 5_000;
 const HEARTBEAT_MS = 30_000;
 const MAX_RUN_MS = Number(process.env.MAX_RUN_MINUTES || 90) * 60_000;
+// Usage limit on one tool: the ticket continues on the other one (AUTO_SWITCH_ON_LIMIT=0 turns this off).
+const AUTO_SWITCH = process.env.AUTO_SWITCH_ON_LIMIT !== '0';
+const LIMIT_COOLDOWN_MS = Number(process.env.LIMIT_COOLDOWN_MINUTES || 60) * 60_000;
+const limitedAt = { claude: 0, cursor: 0 };
+const OTHER = { claude: 'cursor', cursor: 'claude' };
+const NAME = { claude: 'Claude', cursor: 'Cursor' };
+const limited = (r) => Date.now() - limitedAt[r] < LIMIT_COOLDOWN_MS;
 // Headless Claude cannot ask for approval. Without CLAUDE_FLAGS it gets this allowlist instead of skipping all checks.
 const CLAUDE_DEFAULT_FLAGS = [
   '--permission-mode', 'acceptEdits',
@@ -28,6 +36,7 @@ const CLAUDE_DEFAULT_FLAGS = [
 
 let busy = null; // { ticketId, runId, child } | { ticketId, merging: true }
 let shuttingDown = false;
+let untrackedAtStart = new Set();
 
 // systemd stop / PC shutdown: end the agent, mark the run stopped, leave the ticket waiting so it restarts after boot.
 for (const sig of ['SIGTERM', 'SIGINT']) {
@@ -35,7 +44,8 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
     shuttingDown = true;
     if (busy?.child) {
       killTree(busy.child);
-      await api(`/api/runs/${busy.runId}`, { method: 'PATCH', body: { status: 'stopped', endedAt: Date.now(), lastLines: ['Runner stopped (PC shutdown or service restart). The ticket stays queued and restarts when the runner is back.'] } }).catch(warn);
+      const sha = busy.builderBranch ? checkpoint(busy.ticketId, busy.builderBranch, 'runner stopped') : null;
+      await api(`/api/runs/${busy.runId}`, { method: 'PATCH', body: { status: 'stopped', endedAt: Date.now(), lastLines: [`Runner stopped (PC shutdown or service restart). The ticket stays queued and restarts when the runner is back.${sha ? ` Unfinished work saved as ${sha}.` : ''}`] } }).catch(warn);
     }
     process.exit(0);
   });
@@ -52,9 +62,22 @@ async function loop() {
       // Done → merge into main first (Roman pressed Done on the phone).
       if (await mergeNext()) { /* merged one */ }
       else {
+        // One queue across both tools, in the order the board shows (Run next first, then oldest).
+        const picks = [];
         for (const runner of ['claude', 'cursor']) {
           const { ticket } = await api(`/api/runner/next?runner=${runner}`);
-          if (ticket) { await start(ticket, runner); break; }
+          if (ticket) picks.push([ticket, runner]);
+        }
+        picks.sort((a, b) => queueCompare(a[0], b[0]));
+        if (picks.length) {
+          let [ticket, runner] = picks[0];
+          if (AUTO_SWITCH && limited(runner) && !limited(OTHER[runner])) {
+            // This tool hit its limit a moment ago: do not burn a start on it.
+            ticket = await patchTicket(ticket, { runner: OTHER[runner] });
+            await cli(['log', ticket.id, '--who', 'watcher', '--kind', 'log', '--text', `${NAME[runner]} hit its usage limit recently, so the PC runs this ticket with ${NAME[OTHER[runner]]}.`]).catch(warn);
+            runner = OTHER[runner];
+          }
+          await start(ticket, runner);
         }
       }
     } else if (!busy.merging) {
@@ -88,6 +111,7 @@ async function mergeNext() {
     if (!existsBranch(t.branch)) throw new Error(`Branch \`${t.branch}\` not found on the PC.`);
     const msg = `Merge ${t.id}: ${t.title}`;
     git(['merge', '--no-ff', '-m', msg, t.branch]);
+    refreshMagento();
     let pushed = false;
     if (hasOrigin) {
       try {
@@ -179,10 +203,25 @@ async function startInner(t, runner) {
       await api(`/api/tickets/${t.id}`, { method: 'PATCH', body: { patch: { resetBranch: false, resolveConflict: false } } }).catch(warn);
     }
   } else if (branch) {
+    // QA / review roles test the branch as it would land: on top of today's main. Without this the
+    // site ran a weeks-old branch (old home page, old PLP banner, 500s against main's DB).
     git(['checkout', branch]);
+    if (existsBranch('main') && !isAncestor('main', branch)) {
+      try { git(['merge', '--no-edit', '-m', `Merge main into ${branch}`, 'main']); }
+      catch {
+        const files = git(['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean);
+        try { git(['merge', '--abort']); } catch { /* not merging */ }
+        git(['checkout', 'main']);
+        await cli(['block', t.id, '--who', 'watcher', '--code', 'conflict', '--question',
+          `\`main\` conflicts with \`${branch}\` in: ${files.map((f) => `\`${f}\``).join(', ') || 'several files'}. ` +
+          'QA would test a stale branch, so it did not start. Send it back to the builder with **Agent resolves the conflict**.']);
+        return;
+      }
+    }
   } else {
     git(['checkout', 'main']);
   }
+  refreshMagento();
   const branchArgs = (role === 'fe' || role === 'be') && branch ? ['--branch', branch] : [];
   await cli(['take', t.id, '--runner', runner, ...branchArgs]);
   if (t.stashFirst || t.skipChecks) {
@@ -192,6 +231,7 @@ async function startInner(t, runner) {
   // Logs are not on /api/board (transfer quota); the agent still needs Roman's answers and bug notes.
   const logDoc = await api(`/api/log/${t.id}`).catch(() => ({ entries: [] }));
   let prompt = buildPrompt(t, role, runner, branch, { ...board, log: { [t.id]: logDoc } });
+  if ((role === 'fe' || role === 'be') && branch) prompt += resumeNote(branch);
   if (conflicts.length) {
     prompt += `\n\n# Merge in progress (do this first)\nThe runner merged \`main\` into \`${branch}\` and these files conflict: ${conflicts.join(', ')}.\n` +
       'Resolve them: keep main\'s version for anything outside this ticket, keep this ticket\'s work where it is the ticket\'s scope. ' +
@@ -211,7 +251,9 @@ async function startInner(t, runner) {
   const run = await api('/api/runs', { method: 'POST', body: { ticketId: t.id, runner, role, branch: branch || null, model } });
   const child = spawn(cmd, args, { cwd: REPO, stdio: [runner === 'claude' ? 'pipe' : 'ignore', 'pipe', 'pipe'], detached: true });
   // Listeners go on before any await: a fast exit (bad flag, auth) must not be missed, or the runner stays busy forever.
-  busy = { ticketId: t.id, runId: run.id, child };
+  busy = { ticketId: t.id, runId: run.id, child, builderBranch: (role === 'fe' || role === 'be') ? branch : null };
+  // Untracked files that were already there (Roman's own) stay out of a checkpoint commit.
+  untrackedAtStart = untracked();
   const lines = [];
   const push = (l) => { if (l.trim()) lines.push(l.slice(0, 400)); lines.splice(0, Math.max(0, lines.length - 50)); };
   let partial = '';
@@ -254,10 +296,21 @@ async function startInner(t, runner) {
       }
       else if (role === 'idea') await cli(['ideas-restore', t.id, '--text', `${why}\n\n${tail}`]).catch(warn);
       else {
-        const limit = /usage limit|rate limit|quota|out of credits|upgrade to/i.test(tail);
+        const limit = /usage limit|rate limit|quota|out of credits|upgrade to|limit reached|hit your limit|limit will reset/i.test(tail);
         const code = timedOut ? 'timeout' : stopped ? 'stopped' : limit ? 'limit' : 'no_report';
         const lead = limit ? `${runner === 'cursor' ? 'Cursor' : 'Claude'} hit its usage limit. Switch the runner and rerun.` : why;
-        await cli(['block', t.id, '--who', 'watcher', '--code', code, '--question', `${lead} Last lines:\n\n${tail}`]).catch(warn);
+        // Builder work in the tree would block the next run as "dirty" and get stashed away.
+        // Commit it on the ticket branch so the rerun (same or other tool) continues from it.
+        const sha = (role === 'fe' || role === 'be') ? checkpoint(t.id, branch, code) : null;
+        const saved = sha ? `\n\nUnfinished work is committed on \`${branch}\` as ${sha}; the rerun continues from it.` : '';
+        if (limit) limitedAt[runner] = Date.now();
+        if (limit && AUTO_SWITCH && !limited(OTHER[runner]) && now) {
+          // Ticket stays queued with the same agent role; only the tool changes. The next loop starts it.
+          await api(`/api/tickets/${t.id}`).then((fresh) => patchTicket(fresh, { runner: OTHER[runner] })).catch(warn);
+          await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text', `${NAME[runner]} hit its usage limit. The PC continues this ticket with ${NAME[OTHER[runner]]}.${saved}`]).catch(warn);
+        } else {
+          await cli(['block', t.id, '--who', 'watcher', '--code', code, '--question', `${lead}${saved} Last lines:\n\n${tail}`]).catch(warn);
+        }
       }
     }
     writeBoardMd(latest).catch(warn);
@@ -296,6 +349,9 @@ function preflight(t, board) {
     }
   } catch { return { code: 'docker', text: 'Docker is not available on the PC (is the Docker service running?).' }; }
   if (t.skipChecks) return null;
+  // Dependencies gate the build, not QA of a build that already exists (skipChecks is one-shot,
+  // so FE-35 built with "run anyway" was blocked again on BE-09 when it reached QA).
+  if (t.holder === 'qa' && t.kind !== 'UX') return null;
   const tickets = board?.tickets || {};
   const decisions = board?.decisions || {};
   const need = t.kind === 'UX' ? (t.extends || []) : (t.deps || []);
@@ -389,8 +445,49 @@ function claudeEvent(line) {
   return out;
 }
 
+// Builder run ended without a report: commit what it left on the ticket branch (tracked changes and
+// files the run created; .gitignore applies). Only on that branch, never on main. Returns the short sha or null.
+function checkpoint(ticketId, branch, why) {
+  try {
+    if (!branch || branch === 'main') return null;
+    if (git(['rev-parse', '--abbrev-ref', 'HEAD']).trim() !== branch) return null;
+    if (existsSync(path.join(REPO, '.git', 'MERGE_HEAD'))) return null; // half-done merge: preflight aborts it
+    git(['add', '-u']);
+    const created = [...untracked()].filter((f) => !untrackedAtStart.has(f));
+    if (created.length) git(['add', '--', ...created]);
+    if (!git(['diff', '--cached', '--name-only']).trim()) return null;
+    git(['commit', '--no-verify', '-m', `WIP ${ticketId}: checkpoint, run ended (${why})`]);
+    const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+    console.log(`runner: ${ticketId} checkpoint ${sha} on ${branch}`);
+    return sha;
+  } catch (e) { warn(`checkpoint ${ticketId}: ${e.message || e}`); return null; }
+}
+// Tells the next builder (Claude or Cursor) that the branch already has work, so it continues instead of redoing it.
+function resumeNote(branch) {
+  try {
+    if (!existsBranch('main') || !existsBranch(branch)) return '';
+    const commits = git(['log', '--oneline', `main..${branch}`]).trim();
+    if (!commits) return '';
+    const stat = git(['diff', '--stat', `main...${branch}`]).trim().split('\n').slice(-25).join('\n');
+    return `\n\n# Continue the existing work (do not start over)\nBranch \`${branch}\` already has commits from an earlier run of this ticket ` +
+      '(another tool or a run that hit a limit, timed out or was stopped). `WIP ... checkpoint` commits are unfinished work saved by the runner.\n' +
+      `Read them first (\`git log main..HEAD\`, \`git diff main...HEAD\`), check what the scope and QA items still need, and continue from there. ` +
+      'Keep the work that is right, fix what is not. Your report lists all commits of this ticket.\n\n' +
+      `Commits:\n${commits.split('\n').slice(0, 30).join('\n')}\n\nFiles:\n${stat}`;
+  } catch { return ''; }
+}
 function git(args) { return execFileSync('git', args, { cwd: REPO }).toString(); }
+function untracked() { try { return new Set(git(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean)); } catch { return new Set(); } }
 function isAncestor(a, b) { try { git(['merge-base', '--is-ancestor', a, b]); return true; } catch { return false; } }
+// After a branch switch: generated interceptors / extension attributes and caches belong to the old
+// code (e.g. CartExtension without a new attribute -> 500 on every logged-in page). Clear them.
+function refreshMagento() {
+  if (!stackUp()) return;
+  try {
+    execFileSync('docker', ['exec', '-u', 'magento', 'elme_php', 'bash', '-c',
+      'rm -rf generated/code/* generated/metadata/* && bin/magento cache:flush >/dev/null'], { timeout: 180_000 });
+  } catch (e) { warn(`refresh magento: ${e.message || e}`); }
+}
 function stackUp() { return execFileSync('docker', ['ps', '--format', '{{.Names}}']).toString().includes('elme_php'); }
 // The agent spawns shells and node; kill the whole process group, not just the CLI.
 function killTree(child) {
