@@ -747,7 +747,7 @@ function renderQueue() {
       : `${i > firstFree ? `<button class="linkbtn" type="button" data-qact="run-next" data-tid="${esc(t.id)}">Run next</button>` : ''}<button class="linkbtn" type="button" data-qact="cancel" data-tid="${esc(t.id)}">${ico('x')}Cancel</button>`;
     return `<li><button class="qmain" type="button" data-id="${esc(t.id)}"><span class="mono">${esc(t.id)}</span><span class="qttl">${esc(t.title)}</span></button>${holderTool(t)}${st}<span class="qbtns">${btns}</span></li>`;
   }).join('');
-  return `<section class="queue"><h2>Queue <small>${q.length}</small>${pcOnline() ? '' : '<span class="chip" style="color:var(--warn-text)">PC offline</span>'}${tool}</h2><ol>${rows}</ol></section>`;
+  return `<section class="queue"><h2>Queue <small>${q.length}</small>${state.metaSeen && !pcOnline() ? '<span class="chip" style="color:var(--warn-text)">PC offline</span>' : ''}${tool}</h2><ol>${rows}</ol></section>`;
 }
 function renderTable() {
   const list = visible();
@@ -1478,18 +1478,30 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.op
 /* Boot */
 try { const g = localStorage.getItem('elme-board-group'); if (g) state.group = g; } catch {}
 try { const v = localStorage.getItem('elme-board-view'); if (v) document.querySelector(`.tabs [data-view="${v}"]`)?.click(); } catch {}
+// The queue block shows PC status and which ticket runs; both come with board:meta, after the tickets.
+// Rebuild the view when they change, or the queue says "PC offline" / "Next" while the header says online / running.
+let queueSig = '';
+function syncQueueView() {
+  const running = Object.values(state.runs || {}).filter((r) => r.status === 'running' || r.status === 'queued').map((r) => r.ticketId).sort().join();
+  const sig = `${state.metaSeen}|${pcOnline()}|${running}`;
+  if (sig === queueSig) return;
+  queueSig = sig;
+  if (state.view === 'table') render();
+}
 window.addEventListener('board:meta', (e) => {
   state.runnerStatus = e.detail?.runnerStatus || null;
   state.runs = e.detail?.runs || {};
   if (e.detail?.serverNow) state.skew = e.detail.serverNow - Date.now();
   state.metaSeen = true;
   renderPcStatus();
+  syncQueueView();
   // Do not rebuild the whole panel (that resets scroll on the phone).
   patchLiveRun();
 });
 setInterval(() => {
   patchLiveRun();
   renderPcStatus();
+  syncQueueView();
 }, 1000);
 
 (async () => {
