@@ -936,7 +936,7 @@ function renderPanel() {
   }
   $('#close').onclick = closePanel;
   if ($('#edit')) $('#edit').onclick = () => openTicketForm(t);
-  $('#export-one').onclick = (e) => exportCsv([t], 'checks', true, e.currentTarget);
+  $('#export-one').onclick = () => exportCsv([t], 'tickets');
   wireActions(t);
 }
 function ideaVerb(t) { return t.status === 'done' ? 'Rework' : 'Start'; }
@@ -1254,54 +1254,34 @@ function download(name, text) {
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
-const checkState = (c) => c?.state === 'passed' ? 'passed' : c?.state === 'failed' ? 'failed' : c?.state === 'not_checked' ? 'not checked (for Roman)' : 'not checked yet';
-const boardLink = (t) => `${location.origin}/board/index.html#${t.id}`;
-async function qaReports(list) {
-  const out = new Map();
-  for (const t of list) {
-    try {
-      const d = await fetch(`/api/log/${t.id}`, { cache: 'no-store' }).then((r) => r.json());
-      const rep = (d.entries || []).filter((e) => e.kind === 'qa_report').slice(-1)[0];
-      if (rep) out.set(t.id, rep.text);
-    } catch { /* export without it */ }
-  }
-  return out;
-}
-/** shape: 'tickets' = one row per ticket, 'checks' = one row per QA check with empty columns for the QA team. */
-async function exportCsv(list, shape, withReport, btn) {
+/** Ticket text as a QA team or Plane needs it: no branches, commits or agent results. */
+const checklist = (t) => (t.qa || []).map((q) => `[ ] ${q}`).join('\n');
+/** shape: 'tickets' = one row per ticket (import into Plane, Jira), 'checks' = one row per QA check with result and notes to fill. */
+function exportCsv(list, shape, btn) {
   if (!list.length) { toast('No tickets to export.'); return; }
-  const label = btn?.innerHTML;
-  try {
-    if (btn) { btn.disabled = true; if (withReport && list.length > 1) btn.textContent = 'Reading QA reports…'; }
-    const reports = withReport ? await qaReports(list) : new Map();
-    const date = new Date().toISOString().slice(0, 10);
-    let rows;
-    if (shape === 'tickets') {
-      rows = [['Ticket', 'Title', 'Kind', 'Epic', 'Plan stage', 'Status', 'Branch', 'Depends on', 'Description', 'Ref', 'QA checklist', 'Agent QA result', ...(withReport ? ['Agent QA report'] : []), 'Board link']];
-      for (const t of list) {
-        const qa = (t.qa || []).map((q, i) => `${i + 1}. ${q}`).join('\n');
-        const res = (t.qa || []).map((q, i) => `${i + 1}. ${checkState((t.qaChecks || [])[i])}`).join('\n');
-        rows.push([t.id, t.title, t.kind, t.epic, t.wave ? `${t.wave} ${t.waveName || ''}`.trim() : '', STATUS[t.status]?.label || t.status, t.branch || '', (t.deps || []).join(', '), t.scope || '', t.ref || '', qa, res, ...(withReport ? [reports.get(t.id) || ''] : []), boardLink(t)]);
-      }
-    } else {
-      rows = [['Ticket', 'Title', 'Status', 'Branch', 'Check #', 'Check', 'Agent QA result', 'QA team result', 'QA team notes', 'Description', ...(withReport ? ['Agent QA report'] : []), 'Board link']];
-      for (const t of list) {
-        const qa = t.qa?.length ? t.qa : ['(no QA items on this ticket)'];
-        qa.forEach((q, i) => rows.push([t.id, t.title, STATUS[t.status]?.label || t.status, t.branch || '', t.qa?.length ? i + 1 : '', q, t.qa?.length ? checkState((t.qaChecks || [])[i]) : '', '', '', i === 0 ? t.scope || '' : '', ...(withReport ? [i === 0 ? reports.get(t.id) || '' : ''] : []), boardLink(t)]));
-      }
+  const date = new Date().toISOString().slice(0, 10);
+  const status = (t) => STATUS[t.status]?.label || t.status;
+  let rows;
+  if (shape === 'tickets') {
+    rows = [['ID', 'Title', 'Type', 'Epic', 'Status', 'Description', 'QA checklist', 'Description with QA checklist']];
+    for (const t of list) {
+      const qa = checklist(t);
+      rows.push([t.id, t.title, t.kind, t.epic || '', status(t), t.scope || '', qa, [t.scope || '', qa ? `QA checklist:\n${qa}` : ''].filter(Boolean).join('\n\n')]);
     }
-    const name = list.length === 1 ? `elme-${list[0].id.toLowerCase()}-qa-${date}.csv` : `elme-qa-${shape === 'tickets' ? 'tickets' : 'checklist'}-${date}.csv`;
-    download(name, toCsv(rows));
-    toast(`Exported ${list.length} ticket${list.length === 1 ? '' : 's'}`);
-  } catch (e) { toast(e.message || 'Export failed'); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = label; } }
+  } else {
+    rows = [['ID', 'Title', '#', 'Check', 'Result', 'Notes']];
+    for (const t of list) (t.qa || []).forEach((q, i) => rows.push([t.id, t.title, i + 1, q, '', '']));
+  }
+  const name = list.length === 1 ? `elme-${list[0].id.toLowerCase()}-${shape === 'tickets' ? 'ticket' : 'qa'}-${date}.csv` : `elme-${shape === 'tickets' ? 'tickets' : 'qa-checklist'}-${date}.csv`;
+  download(name, toCsv(rows));
+  toast(`Exported ${list.length} ticket${list.length === 1 ? '' : 's'}`);
 }
 function openExport() {
   closePanel();
   state.open = EXPORT;
   const current = visible({ withDone: true });
   const review = live().filter((t) => t.status === 'review');
-  const done = live().filter((t) => t.status === 'done' && t.mergedAt && Date.now() - t.mergedAt < 14 * 864e5);
+  const done = live().filter((t) => t.status === 'done' && Date.now() - (t.mergedAt || t.updatedAt || 0) < 14 * 864e5);
   const p = $('#panel');
   const opt = (v, text, n, checked = false) => `<label class="radio"><input type="radio" name="ex-set" value="${v}"${checked ? ' checked' : ''}><span>${text} <small>${n}</small></span></label>`;
   p.innerHTML = `
@@ -1309,16 +1289,15 @@ function openExport() {
     <div class="pb"><form class="form" id="ex-form" novalidate>
       <fieldset><legend>Tickets</legend>
         ${opt('review', 'Waiting for your review', review.length, review.length > 0)}
-        ${opt('done', 'Merged in the last 14 days', done.length)}
+        ${opt('done', 'Done in the last 14 days', done.length)}
         ${opt('current', 'The current list (filters and search, done included)', current.length, review.length === 0)}
         ${opt('ids', 'These tickets', '')}
         <input id="ex-ids" placeholder="FE-80, FE-81, BE-17" autocapitalize="characters" aria-label="Ticket ids">
       </fieldset>
       <fieldset><legend>Layout</legend>
-        <label class="radio"><input type="radio" name="ex-shape" value="checks" checked><span>One row per QA check <small>test cases, with empty columns for the QA team's result and notes</small></span></label>
-        <label class="radio"><input type="radio" name="ex-shape" value="tickets"><span>One row per ticket <small>description and the whole checklist in one row</small></span></label>
+        <label class="radio"><input type="radio" name="ex-shape" value="tickets" checked><span>Ticket list <small>one row per ticket: ID, title, type, epic, status, description, QA checklist. For import into Plane or Jira.</small></span></label>
+        <label class="radio"><input type="radio" name="ex-shape" value="checks"><span>QA checklist <small>one row per check, with empty Result and Notes for the tester</small></span></label>
       </fieldset>
-      <label class="check"><input type="checkbox" id="ex-report"> Add the agent's last QA report <small>(reads each ticket's log, slower)</small></label>
     </form></div>
     <div class="actions"><div class="btns"><button class="btn primary" id="ex-go" type="button">${ico('download')}Download CSV</button></div></div>`;
   p.hidden = false; $('#scrim').hidden = false;
@@ -1331,7 +1310,7 @@ function openExport() {
     const list = set === 'review' ? review : set === 'done' ? done : set === 'current' ? current
       : ids.map((id) => state.tickets.get(id)).filter(Boolean);
     if (set === 'ids' && list.length < ids.length) toast(`Not found: ${ids.filter((id) => !state.tickets.has(id)).join(', ')}`);
-    exportCsv(list, p.querySelector('input[name="ex-shape"]:checked').value, $('#ex-report').checked, e.currentTarget);
+    exportCsv(list, p.querySelector('input[name="ex-shape"]:checked').value);
   };
 }
 $('#export').onclick = openExport;
