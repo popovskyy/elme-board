@@ -355,7 +355,8 @@ function preflight(t, board) {
   const tickets = board?.tickets || {};
   const decisions = board?.decisions || {};
   const need = t.kind === 'UX' ? (t.extends || []) : (t.deps || []);
-  const openDeps = need.filter((id) => tickets[id]?.status !== 'done');
+  // Archived dependencies (duplicates, dropped work) count as met.
+  const openDeps = need.filter((id) => tickets[id]?.status !== 'done' && !tickets[id]?.archived);
   if (openDeps.length) return { code: 'deps', text: `Dependencies are not done yet: ${openDeps.join(', ')}.` };
   const openDec = (t.decisions || []).filter((id) => decisions[id]?.status !== 'decided');
   if (openDec.length) return { code: 'decisions', text: `Open decisions: ${openDec.join(', ')}. Decide them, or run anyway.` };

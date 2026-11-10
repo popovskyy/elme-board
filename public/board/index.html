@@ -40,6 +40,7 @@
   <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.2 13.4 9 19 10.6 13.4 12.2 12 18l-1.4-5.8L5 10.6 10.6 9z"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-pencil" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
   <symbol id="i-archive" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v4H4zM5 9v10h14V9M10 13h4"/></symbol>
   <symbol id="i-cursor" viewBox="0 0 24 24"><path fill="currentColor" d="M6 4.5 18.5 12 11.2 13.4 8.6 20z"/></symbol>
 </svg>
@@ -195,6 +196,15 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .run-done { color: var(--ok-text); font-weight: 700; }
 pre.stat { margin: 10px 0 6px; max-height: 260px; overflow: auto; padding: 10px; background: var(--surface-2); border: 1px solid var(--line); font: 12px/1.45 var(--mono); white-space: pre; }
 
+.export-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--fg); background: var(--surface); font-weight: 700; font-size: 14px; }
+.export-btn:hover { background: var(--surface-2); }
+.export-btn .ico { width: 16px; height: 16px; }
+.form fieldset { border: 1px solid var(--line); margin: 0; padding: 10px 14px 14px; display: grid; gap: 8px; }
+.form legend { font-weight: 700; font-size: 14px; padding: 0 4px; }
+.form label.radio, .form label.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; }
+.form label.radio input, .form label.check input { width: 20px; height: 20px; min-height: 0; margin: 0; flex: none; accent-color: var(--accent); }
+.form label.radio small, .form label.check small { color: var(--muted); font-weight: 400; }
+
 .notice { margin-top: 16px; padding: 12px 16px; border: 1px dashed var(--line); border-radius: 0; color: var(--muted); }
 main { padding-top: 16px; }
 
@@ -324,7 +334,8 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .titlerow { flex-wrap: wrap; row-gap: 10px; }
   .pc-status .txt { white-space: nowrap; }
   .wavebar .track { display: none; }
-  .new-ticket span { display: none; }
+  .new-ticket span, .export-btn span { display: none; }
+  .export-btn { padding: 8px 12px; }
   .new-ticket { padding: 8px 12px; }
   .form .row2 { grid-template-columns: 1fr; }
   .tools-toggle { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: none; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px; }
@@ -430,6 +441,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
     <h1>Elme <span>Board</span></h1>
     <span class="sub">Hyvä port roadmap</span>
     <div class="pc-status" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">Checking PC…</span></div>
+    <button class="export-btn" id="export" type="button" aria-label="Export for QA"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg><span>Export</span></button>
     <button class="new-ticket" id="new-ticket" type="button" aria-label="New ticket"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>New ticket</span></button>
     <button class="tools-toggle" id="tools-toggle" type="button" aria-expanded="false" aria-controls="tools"><svg class="ico" aria-hidden="true"><use href="#i-plan"/></svg><span>Filters</span><b id="tools-count" hidden></b></button>
     <div class="counters" id="counters" aria-live="polite"></div>
@@ -529,14 +541,16 @@ const statusCell = (s) => `<div class="status" style="background:var(${STATUS[s]
 const pill = (s) => `<span class="pill" style="background:var(${STATUS[s]?.c || '--st-todo'})">${esc(STATUS[s]?.label || s)}</span>`;
 const holder = (h) => h && HOLDER[h] ? `<span class="holder" style="background:var(${HOLDER[h][1]})" title="${HOLDER[h][2]}">${HOLDER[h][0]}</span>` : '<span class="holder none" title="Nobody">–</span>';
 function deps(t) {
-  const a = (t.deps || []).map((d) => `<span class="dep ${state.tickets.get(d)?.status === 'done' ? 'ok' : 'open'}">${esc(d)}</span>`);
+  const a = (t.deps || []).map((d) => `<span class="dep ${depDone(d) ? 'ok' : 'open'}">${esc(d)}</span>`);
   const b = (t.decisions || []).map((d) => `<span class="dep ${state.decisions.get(d)?.status === 'decided' ? 'ok' : 'open'}">${esc(d)}</span>`);
   return a.concat(b).join('') || '<span class="empty">—</span>';
 }
+/** A dependency is met when it is done, or archived (dropped as a duplicate or no longer needed). */
+function depDone(id) { const d = state.tickets.get(id); return d?.status === 'done' || !!d?.archived; }
 function isReady(t) {
-  if (t.status !== 'todo') return false;
+  if (t.status !== 'todo' || t.archived) return false;
   const need = t.kind === 'UX' ? (t.extends || []) : (t.deps || []);
-  return need.every((d) => state.tickets.get(d)?.status === 'done') && (t.decisions || []).every((d) => state.decisions.get(d)?.status === 'decided');
+  return need.every(depDone) && (t.decisions || []).every((d) => state.decisions.get(d)?.status === 'decided');
 }
 function runnerLabel(t) { return (t.runner || 'claude') === 'cursor' ? 'Cursor' : 'Claude'; }
 function holderTool(t) {
@@ -888,7 +902,7 @@ function renderPanel() {
   const lc = { seo: '--st-qa', question: '--st-blocked', answer: '--h-roman', bug: '--st-blocked', qa_report: '--st-qa', ideas: '--h-roman', log: '--line', note: '--h-roman' };
   p.innerHTML = `
     <div class="ph">
-      <div class="row1"><h3><span class="mono">${esc(t.id)}</span> ${esc(t.title)}</h3><div class="ph-btns">${state.canWrite && !t.waiting ? `<button class="close" id="edit" type="button" aria-label="Edit ticket" title="Edit ticket">${ico('pencil')}</button>` : ''}<button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
+      <div class="row1"><h3><span class="mono">${esc(t.id)}</span> ${esc(t.title)}</h3><div class="ph-btns"><button class="close" id="export-one" type="button" aria-label="Export this ticket as CSV" title="Export this ticket as CSV">${ico('download')}</button>${state.canWrite && !t.waiting ? `<button class="close" id="edit" type="button" aria-label="Edit ticket" title="Edit ticket">${ico('pencil')}</button>` : ''}<button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
       <div class="facts">${t.archived ? pill('archived') + ' ' : ''}${pill(t.status)} ${holder(t.holder)} <span class="chip tool">${esc(runnerLabel(t))}</span> <span>${esc(t.epic)}</span> <span>${esc(t.kind)}</span>
         ${t.branch ? `<span class="mono">${esc(t.branch)}</span>` : ''}${t.qaVerdict ? `<span>QA: ${esc(t.qaVerdict)}</span>` : ''}
         ${t.ideaVerdict ? `<span class="chip ${t.ideaVerdict === 'ship' ? 'ready' : 'work'}">${ico('spark')}${t.ideaVerdict === 'ship' ? 'Ship it' : 'Push further'}</span>` : ''}
@@ -922,6 +936,7 @@ function renderPanel() {
   }
   $('#close').onclick = closePanel;
   if ($('#edit')) $('#edit').onclick = () => openTicketForm(t);
+  $('#export-one').onclick = (e) => exportCsv([t], 'checks', true, e.currentTarget);
   wireActions(t);
 }
 function ideaVerb(t) { return t.status === 'done' ? 'Rework' : 'Start'; }
@@ -1224,6 +1239,103 @@ function openTicketForm(t = null) {
   });
 }
 $('#new-ticket').onclick = () => openTicketForm();
+
+/* Export for QA: CSV that opens in Excel, Numbers and Google Sheets. */
+const EXPORT = `${NEW_TICKET}:export`;
+function csvCell(v) {
+  let s = String(v ?? '').replace(/\r\n?/g, '\n');
+  if (/^[=+\-@\t]/.test(s)) s = `'${s}`; // a spreadsheet must not read ticket text as a formula
+  return `"${s.replace(/"/g, '""')}"`;
+}
+function toCsv(rows) { return '﻿' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n'; }
+function download(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+const checkState = (c) => c?.state === 'passed' ? 'passed' : c?.state === 'failed' ? 'failed' : c?.state === 'not_checked' ? 'not checked (for Roman)' : 'not checked yet';
+const boardLink = (t) => `${location.origin}/board/index.html#${t.id}`;
+async function qaReports(list) {
+  const out = new Map();
+  for (const t of list) {
+    try {
+      const d = await fetch(`/api/log/${t.id}`, { cache: 'no-store' }).then((r) => r.json());
+      const rep = (d.entries || []).filter((e) => e.kind === 'qa_report').slice(-1)[0];
+      if (rep) out.set(t.id, rep.text);
+    } catch { /* export without it */ }
+  }
+  return out;
+}
+/** shape: 'tickets' = one row per ticket, 'checks' = one row per QA check with empty columns for the QA team. */
+async function exportCsv(list, shape, withReport, btn) {
+  if (!list.length) { toast('No tickets to export.'); return; }
+  const label = btn?.innerHTML;
+  try {
+    if (btn) { btn.disabled = true; if (withReport && list.length > 1) btn.textContent = 'Reading QA reports…'; }
+    const reports = withReport ? await qaReports(list) : new Map();
+    const date = new Date().toISOString().slice(0, 10);
+    let rows;
+    if (shape === 'tickets') {
+      rows = [['Ticket', 'Title', 'Kind', 'Epic', 'Plan stage', 'Status', 'Branch', 'Depends on', 'Description', 'Ref', 'QA checklist', 'Agent QA result', ...(withReport ? ['Agent QA report'] : []), 'Board link']];
+      for (const t of list) {
+        const qa = (t.qa || []).map((q, i) => `${i + 1}. ${q}`).join('\n');
+        const res = (t.qa || []).map((q, i) => `${i + 1}. ${checkState((t.qaChecks || [])[i])}`).join('\n');
+        rows.push([t.id, t.title, t.kind, t.epic, t.wave ? `${t.wave} ${t.waveName || ''}`.trim() : '', STATUS[t.status]?.label || t.status, t.branch || '', (t.deps || []).join(', '), t.scope || '', t.ref || '', qa, res, ...(withReport ? [reports.get(t.id) || ''] : []), boardLink(t)]);
+      }
+    } else {
+      rows = [['Ticket', 'Title', 'Status', 'Branch', 'Check #', 'Check', 'Agent QA result', 'QA team result', 'QA team notes', 'Description', ...(withReport ? ['Agent QA report'] : []), 'Board link']];
+      for (const t of list) {
+        const qa = t.qa?.length ? t.qa : ['(no QA items on this ticket)'];
+        qa.forEach((q, i) => rows.push([t.id, t.title, STATUS[t.status]?.label || t.status, t.branch || '', t.qa?.length ? i + 1 : '', q, t.qa?.length ? checkState((t.qaChecks || [])[i]) : '', '', '', i === 0 ? t.scope || '' : '', ...(withReport ? [i === 0 ? reports.get(t.id) || '' : ''] : []), boardLink(t)]));
+      }
+    }
+    const name = list.length === 1 ? `elme-${list[0].id.toLowerCase()}-qa-${date}.csv` : `elme-qa-${shape === 'tickets' ? 'tickets' : 'checklist'}-${date}.csv`;
+    download(name, toCsv(rows));
+    toast(`Exported ${list.length} ticket${list.length === 1 ? '' : 's'}`);
+  } catch (e) { toast(e.message || 'Export failed'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = label; } }
+}
+function openExport() {
+  closePanel();
+  state.open = EXPORT;
+  const current = visible({ withDone: true });
+  const review = live().filter((t) => t.status === 'review');
+  const done = live().filter((t) => t.status === 'done' && t.mergedAt && Date.now() - t.mergedAt < 14 * 864e5);
+  const p = $('#panel');
+  const opt = (v, text, n, checked = false) => `<label class="radio"><input type="radio" name="ex-set" value="${v}"${checked ? ' checked' : ''}><span>${text} <small>${n}</small></span></label>`;
+  p.innerHTML = `
+    <div class="ph"><div class="row1"><h3>Export for QA</h3><button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
+    <div class="pb"><form class="form" id="ex-form" novalidate>
+      <fieldset><legend>Tickets</legend>
+        ${opt('review', 'Waiting for your review', review.length, review.length > 0)}
+        ${opt('done', 'Merged in the last 14 days', done.length)}
+        ${opt('current', 'The current list (filters and search, done included)', current.length, review.length === 0)}
+        ${opt('ids', 'These tickets', '')}
+        <input id="ex-ids" placeholder="FE-80, FE-81, BE-17" autocapitalize="characters" aria-label="Ticket ids">
+      </fieldset>
+      <fieldset><legend>Layout</legend>
+        <label class="radio"><input type="radio" name="ex-shape" value="checks" checked><span>One row per QA check <small>test cases, with empty columns for the QA team's result and notes</small></span></label>
+        <label class="radio"><input type="radio" name="ex-shape" value="tickets"><span>One row per ticket <small>description and the whole checklist in one row</small></span></label>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="ex-report"> Add the agent's last QA report <small>(reads each ticket's log, slower)</small></label>
+    </form></div>
+    <div class="actions"><div class="btns"><button class="btn primary" id="ex-go" type="button">${ico('download')}Download CSV</button></div></div>`;
+  p.hidden = false; $('#scrim').hidden = false;
+  document.documentElement.classList.add('panel-open');
+  $('#close').onclick = closePanel;
+  $('#ex-ids').oninput = () => { p.querySelector('input[name="ex-set"][value="ids"]').checked = true; };
+  $('#ex-go').onclick = (e) => {
+    const set = p.querySelector('input[name="ex-set"]:checked')?.value;
+    const ids = $('#ex-ids').value.toUpperCase().split(/[\s,]+/).filter(Boolean);
+    const list = set === 'review' ? review : set === 'done' ? done : set === 'current' ? current
+      : ids.map((id) => state.tickets.get(id)).filter(Boolean);
+    if (set === 'ids' && list.length < ids.length) toast(`Not found: ${ids.filter((id) => !state.tickets.has(id)).join(', ')}`);
+    exportCsv(list, p.querySelector('input[name="ex-shape"]:checked').value, $('#ex-report').checked, e.currentTarget);
+  };
+}
+$('#export').onclick = openExport;
+
 
 function openPanel(id) {
   state.open = id; state.log = null; panelKey = '';
