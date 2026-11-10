@@ -47,6 +47,8 @@ export type Ticket = {
   priority?: number;
   /** Branch facts the CLI records when the builder reports (board built). */
   changes?: { commits: string[]; stat: string; at: number } | null;
+  /** Set when Roman exported the ticket to the QA team (board Export). */
+  qaHandoffAt?: number | null;
 };
 
 export type Decision = {

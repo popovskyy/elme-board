@@ -908,6 +908,7 @@ function renderPanel() {
         ${t.ideaVerdict ? `<span class="chip ${t.ideaVerdict === 'ship' ? 'ready' : 'work'}">${ico('spark')}${t.ideaVerdict === 'ship' ? 'Ship it' : 'Push further'}</span>` : ''}
         ${t.mergeRequested ? '<span class="chip work">Merging into main…</span>' : ''}
         ${t.mergedAt ? '<span class="chip ready">Merged to main</span>' : ''}
+        ${t.qaHandoffAt ? `<span class="chip tool">Handed to QA ${esc(when(t.qaHandoffAt))}</span>` : ''}
         ${t.mergeError ? `<span class="chip" style="color:var(--warn-text)">Merge failed</span>` : ''}</div>
     </div>
     <div class="pb">
@@ -1280,17 +1281,20 @@ function openExport() {
   closePanel();
   state.open = EXPORT;
   const current = visible({ withDone: true });
-  const review = live().filter((t) => t.status === 'review');
-  const done = live().filter((t) => t.status === 'done' && Date.now() - (t.mergedAt || t.updatedAt || 0) < 14 * 864e5);
+  const bySeq = (a, b) => (a.seq ?? 999) - (b.seq ?? 999);
+  const done = live().filter((t) => t.status === 'done').sort(bySeq);
+  const fresh = done.filter((t) => !t.qaHandoffAt);
+  const all = live().sort(bySeq);
   const p = $('#panel');
   const opt = (v, text, n, checked = false) => `<label class="radio"><input type="radio" name="ex-set" value="${v}"${checked ? ' checked' : ''}><span>${text} <small>${n}</small></span></label>`;
   p.innerHTML = `
     <div class="ph"><div class="row1"><h3>Export for QA</h3><button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
     <div class="pb"><form class="form" id="ex-form" novalidate>
       <fieldset><legend>Tickets</legend>
-        ${opt('review', 'Waiting for your review', review.length, review.length > 0)}
-        ${opt('done', 'Done in the last 14 days', done.length)}
-        ${opt('current', 'The current list (filters and search, done included)', current.length, review.length === 0)}
+        ${opt('fresh', 'Done, not handed to QA yet', fresh.length, true)}
+        ${opt('done', 'All done', done.length)}
+        ${opt('all', 'All tickets', all.length)}
+        ${opt('current', 'The current list (filters and search)', current.length)}
         ${opt('ids', 'These tickets', '')}
         <input id="ex-ids" placeholder="FE-80, FE-81, BE-17" autocapitalize="characters" aria-label="Ticket ids">
       </fieldset>
@@ -1298,19 +1302,30 @@ function openExport() {
         <label class="radio"><input type="radio" name="ex-shape" value="tickets" checked><span>Ticket list <small>one row per ticket: ID, title, type, epic, status, description, QA checklist. For import into Plane or Jira.</small></span></label>
         <label class="radio"><input type="radio" name="ex-shape" value="checks"><span>QA checklist <small>one row per check, with empty Result and Notes for the tester</small></span></label>
       </fieldset>
+      <label class="check"><input type="checkbox" id="ex-mark" checked> Mark them as handed to QA <small>so the next export of "not handed to QA yet" brings only new tickets</small></label>
     </form></div>
     <div class="actions"><div class="btns"><button class="btn primary" id="ex-go" type="button">${ico('download')}Download CSV</button></div></div>`;
   p.hidden = false; $('#scrim').hidden = false;
   document.documentElement.classList.add('panel-open');
   $('#close').onclick = closePanel;
   $('#ex-ids').oninput = () => { p.querySelector('input[name="ex-set"][value="ids"]').checked = true; };
-  $('#ex-go').onclick = (e) => {
+  $('#ex-go').onclick = async (e) => {
     const set = p.querySelector('input[name="ex-set"]:checked')?.value;
     const ids = $('#ex-ids').value.toUpperCase().split(/[\s,]+/).filter(Boolean);
-    const list = set === 'review' ? review : set === 'done' ? done : set === 'current' ? current
+    const list = set === 'fresh' ? fresh : set === 'done' ? done : set === 'all' ? all : set === 'current' ? current
       : ids.map((id) => state.tickets.get(id)).filter(Boolean);
     if (set === 'ids' && list.length < ids.length) toast(`Not found: ${ids.filter((id) => !state.tickets.has(id)).join(', ')}`);
     exportCsv(list, p.querySelector('input[name="ex-shape"]:checked').value);
+    // Only finished work counts as handed over; a To do ticket in the file is still Roman's.
+    const handed = list.filter((t) => t.status === 'done' && !t.qaHandoffAt);
+    if ($('#ex-mark').checked && handed.length && state.canWrite) {
+      const b = e.currentTarget; b.disabled = true;
+      const at = Date.now();
+      try { for (const t of handed) await db.doc(`tickets/${t.id}`).update({ qaHandoffAt: at, updatedAt: t.updatedAt }); toast(`${handed.length} marked as handed to QA`); }
+      catch (err) { toast(err.message || 'Could not mark all tickets'); }
+      b.disabled = false;
+      closePanel();
+    }
   };
 }
 $('#export').onclick = openExport;
