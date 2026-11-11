@@ -255,22 +255,6 @@
         "Kept scripts raise no CSP violations",
         "Lighthouse performance does not drop below the UX-09 budget"
       ]
-    },
-    {
-      "key": "emails",
-      "kind": "FE",
-      "epic": "10 Cross-cutting",
-      "deps": [
-        "FE-01"
-      ],
-      "title": "Transactional email templates in the Elme style",
-      "scope": "The roadmap left emails out of scope and no ticket covers them. Header, footer and styles for the emails a trade customer gets: account application received / approved, password reset, order confirmation, shipment, invoice, contact form copy. Colours and fonts from the design tokens; prices ex. GST as in the store.",
-      "ref": "Old templates: `Bart/el/*/email`, modules `ElmeLiving_*` in m2-bart-group",
-      "qa": [
-        "Each listed email renders in Gmail, Outlook and Apple Mail",
-        "Logo, links and contact details are the Elme ones",
-        "Order email shows prices ex. GST and the same totals as the checkout"
-      ]
     }
   ]
 }
