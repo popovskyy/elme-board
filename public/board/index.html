@@ -221,7 +221,27 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .wcard:hover { border-color: var(--accent); }
 .wcard[aria-pressed="true"] { border-color: var(--fg); background: var(--surface-2); box-shadow: inset 0 -3px 0 var(--accent); }
 .wcard.complete .wn { color: var(--muted); }
-.ov-clear { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 10px; color: var(--muted); font-size: 13px; }
+.ov-foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: 13px; }
+.ov-foot .linkbtn:last-child { margin-left: auto; }
+.ov-now { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
+.nowrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; background: color-mix(in srgb, var(--st-progress) 16%, var(--surface)); border-left: 4px solid var(--rg-progress); padding: 6px 12px; }
+.nowrow .nowmain { display: flex; gap: 10px; align-items: baseline; min-width: 0; background: none; border: 0; padding: 4px 0; text-align: left; }
+.nowrow .nowmain b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nowrow .nowmain:hover b { text-decoration: underline; }
+.nowrow .timer { font-variant-numeric: tabular-nums; font-weight: 700; }
+.nowrow .nowline { flex: 1 1 200px; min-width: 0; color: var(--muted); font: 12px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nowrow .linkbtn { margin-left: auto; }
+.overview.mini { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 14px; }
+.overview.mini .ov-now, .overview.mini .ov-foot { flex: 1 1 100%; }
+.ov-mini { display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 0; min-height: 36px; text-align: left; flex: 1; }
+.ov-mini b { font: 400 22px/1 var(--display); }
+.ov-mini span { color: var(--muted); font-size: 13px; }
+.ov-mini em { font-style: normal; font-weight: 700; color: var(--warn-text); }
+.qam { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--ok-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.qam .ico { width: 13px; height: 13px; }
+.qam.fail { color: var(--warn-text); }
+.qam.part { color: var(--muted); }
+.chip.unlocks { background: var(--surface-2); color: var(--muted); }
 .tring { display: inline-block; vertical-align: middle; flex: none; }
 .queue .qmain .tring { align-self: center; }
 @media (prefers-reduced-motion: no-preference) {
@@ -286,6 +306,7 @@ td.statuscell { padding: 0; width: 140px; }
 .holder { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 0; font-weight: 500; font-size: 11px; letter-spacing: .3px; color: var(--fg); }
 .holder.none { background: transparent; border: 1px dashed var(--line); color: var(--muted); }
 .kind { font-size: 11px; font-weight: 700; color: var(--muted); }
+button.dep { border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .dep { display: inline-block; margin: 2px 4px 2px 0; padding: 0 6px; border-radius: 4px; font-size: 11px; background: var(--surface-2); color: var(--muted); }
 .dep.open { color: var(--warn-text); }
 .dep.ok { color: var(--ok-text); }
@@ -436,6 +457,8 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .ov-waves { margin-inline: -14px; padding-inline: 14px; scrollbar-width: none; }
   .wcard { min-height: 56px; }
   .steps li { font-size: 10px; }
+  .nowrow .nowmain { flex-basis: 100%; }
+  .nowrow .nowmain b { white-space: normal; }
   .queue .qmain { flex-basis: 100%; }
   .queue .qttl { white-space: normal; }
   .ph-btns .close { width: 48px; height: 48px; }
@@ -521,7 +544,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
       <button data-group="plan" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-plan"/></svg>Plan order</button><button data-group="status" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-status"/></svg>By status</button>
     </div>
     <div class="filters">
-      <input id="search" type="search" placeholder="Search tickets…" aria-label="Search tickets">
+      <input id="search" type="search" placeholder="Search tickets…  ( / )" aria-label="Search tickets">
       <select id="epic" aria-label="Epic"><option value="">All epics</option></select>
       <select id="kind" aria-label="Ticket kind">
         <option value="">All kinds</option><option value="FE">FE</option><option value="UX">UX</option><option value="BE">BE</option>
@@ -571,6 +594,10 @@ const GROUPS = [
 const state = { tickets: new Map(), decisions: new Map(), view: 'table', group: 'plan', q: '', kind: '', epic: '', status: '', who: '', wave: 0, hideDone: true, openWaves: new Set(), focus: '', open: null, log: null, canWrite: true, runs: {}, runnerStatus: null, pickRunner: 'claude' };
 try { const r = localStorage.getItem('elme-board-runner'); if (r === 'claude' || r === 'cursor') state.pickRunner = r; } catch {}
 try { state.hideDone = localStorage.getItem('elme-board-hide-done') !== '0'; } catch {}
+// The overview pick (status arc, plan stage) and its folded state survive a reload.
+try { const pk = JSON.parse(localStorage.getItem('elme-board-pick') || '{}'); if (['todo', 'in_progress', 'in_qa', 'review', 'blocked', 'done'].includes(pk.status)) state.status = pk.status; if (Number(pk.wave) > 0) state.wave = Number(pk.wave); } catch {}
+try { const o = localStorage.getItem('elme-board-overview'); state.ovMini = o ? o === 'mini' : matchMedia('(max-width: 720px)').matches; } catch { state.ovMini = false; }
+function savePick() { try { localStorage.setItem('elme-board-pick', JSON.stringify({ status: RING[state.status] ? state.status : '', wave: state.wave })); } catch {} }
 const narrow = matchMedia('(max-width: 720px)');
 const FOCUS = {
   mine: (t) => t.status === 'review' || t.status === 'blocked',
@@ -765,6 +792,51 @@ function stepper(t) {
     return `<li class="${cls}"${n === i ? ` aria-current="step" style="--sc:var(${blocked ? '--rg-blocked' : RING[k]})"` : ''}><i></i>${esc(text)}</li>`;
   }).join('')}</ol>`;
 }
+/** Open tickets that wait for this one (it is in their deps). */
+let unlockSrc = null, unlockMap = new Map();
+function unlocksOf(id) {
+  if (unlockSrc !== state.tickets) {
+    unlockSrc = state.tickets; unlockMap = new Map();
+    for (const t of live()) if (t.status !== 'done') for (const d of t.deps || []) unlockMap.set(d, [...(unlockMap.get(d) || []), t.id]);
+  }
+  return unlockMap.get(id) || [];
+}
+function unlocksChip(t) {
+  const n = t.status === 'done' || t.archived ? 0 : unlocksOf(t.id).length;
+  return n > 1 ? `<span class="chip unlocks" title="${n} tickets wait for this one: ${esc(unlocksOf(t.id).join(', '))}">Unlocks ${n}</span>` : '';
+}
+/** QA checks at a glance, once the QA agent has checked at least one. */
+function qaMini(t) {
+  const checks = (t.qaChecks || []).slice(0, (t.qa || []).length);
+  const passed = checks.filter((c) => c?.state === 'passed').length;
+  const failed = checks.filter((c) => c?.state === 'failed').length;
+  if (!passed && !failed) return '';
+  const total = t.qa.length;
+  const label = `QA checks: ${passed} of ${total} passed${failed ? `, ${failed} failed` : ''}`;
+  return `<span class="qam ${failed ? 'fail' : passed === total ? '' : 'part'}" title="${label}" aria-label="${label}">${ico(failed ? 'x' : 'check')}${failed ? `${failed} failed · ` : ''}${passed}/${total}</span>`;
+}
+/** What the PC works on right now. Timer and last output line are patched every second (patchNow), not rebuilt. */
+function nowRunning() {
+  const runs = Object.values(state.runs || {}).filter((r) => (r.status === 'running' || r.status === 'queued') && state.tickets.has(r.ticketId));
+  if (!runs.length) return '';
+  return `<div class="ov-now">${runs.map((r) => {
+    const t = state.tickets.get(r.ticketId);
+    return `<div class="nowrow"><span class="chip work">${r.status === 'running' ? 'Running' : 'Starting'}</span>
+      <button class="nowmain" type="button" data-id="${esc(t.id)}"><span class="mono">${esc(t.id)}</span><b>${esc(t.title)}</b></button>${holderTool(t)}
+      <span class="timer" data-run-timer="${esc(r.id)}"></span><span class="nowline" data-run-line="${esc(r.id)}"></span>
+      ${state.canWrite ? `<button class="linkbtn" type="button" data-qact="stop" data-run="${esc(r.id)}">${ico('stop')}Stop</button>` : ''}</div>`;
+  }).join('')}</div>`;
+}
+function patchNow() {
+  document.querySelectorAll('#view [data-run-timer]').forEach((el) => {
+    const r = state.runs?.[el.dataset.runTimer]; if (!r) return;
+    const sec = Math.max(0, Math.round((Date.now() - (r.startedAt || Date.now())) / 1000));
+    el.textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+    const line = el.parentElement.querySelector('[data-run-line]');
+    const last = (r.lastLines || []).filter((l) => String(l).trim()).slice(-1)[0] || 'Waiting for agent output…';
+    if (line && line.textContent !== last) line.textContent = last;
+  });
+}
 /** The whole plan at a glance: status donut (tap an arc or a legend row to filter) and one ring per plan stage. */
 function renderOverview() {
   const all = live();
@@ -787,11 +859,17 @@ function renderOverview() {
       <span class="wn">${w} · ${esc(name)}</span><span class="ws">${d}/${inWave.length} done${note}</span></button>`;
   }).join('');
   const waveName = state.wave ? all.find((t) => t.wave === state.wave)?.waveName : '';
-  const clear = picked || state.wave ? `<div class="ov-clear"><span>Showing ${[picked ? STATUS[state.status].label : '', state.wave ? `stage ${state.wave} · ${esc(waveName || '')}` : ''].filter(Boolean).join(' in ')}</span><button class="linkbtn" type="button" data-ov-clear>${ico('x')}Show everything</button></div>` : '';
-  return `<section class="overview" aria-label="Progress overview">
+  const clear = picked || state.wave ? `<span>Showing ${[picked ? STATUS[state.status].label : '', state.wave ? `stage ${state.wave} · ${esc(waveName || '')}` : ''].filter(Boolean).join(' in ')}</span><button class="linkbtn" type="button" data-ov-clear>${ico('x')}Show everything</button>` : '';
+  if (state.ovMini) {
+    const mine = all.filter(FOCUS.mine).length;
+    return `<section class="overview mini" aria-label="Progress overview">
+      <button class="ov-mini" type="button" data-ov-toggle aria-expanded="false" title="Show the progress overview">${ring(ringParts(all), 30, 6)}<b>${pct}%</b><span>${done} of ${all.length} done${mine ? ` · <em>${mine} for you</em>` : ''}</span></button>
+      <button class="linkbtn" type="button" data-ov-toggle>Show overview</button>${nowRunning()}${clear ? `<div class="ov-foot">${clear}</div>` : ''}</section>`;
+  }
+  return `<section class="overview" aria-label="Progress overview">${nowRunning()}
     <div class="ov-status"><div class="donut${picked ? ' picked' : ''}" data-mid="${esc(mid[0])}|${esc(mid[1])}">${ring(ringParts(all), 148, 18, { pick: true })}<div class="mid"><b>${mid[0]}</b><span>${mid[1]}</span></div></div>
       <ul class="legend">${legend}</ul></div>
-    ${waves ? `<div class="ov-waves">${waves}</div>` : ''}${clear}</section>`;
+    ${waves ? `<div class="ov-waves">${waves}</div>` : ''}<div class="ov-foot">${clear}<button class="linkbtn" type="button" data-ov-toggle aria-expanded="true">Fold overview</button></div></section>`;
 }
 function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2800); }
 
@@ -842,7 +920,7 @@ function mitem(t, c) {
   return `<button class="mitem" data-id="${esc(t.id)}" style="--gc:var(${c})">
     <div class="r1"><span>${ticketRing(t)} <span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span></span>${pill(t.status)}</div>
     <div class="ttl">${esc(t.title)}</div>
-    <div class="r3">${holder(t.holder)}<span>${esc(t.waveName || t.epic)}</span>${badges(t)}</div></button>`;
+    <div class="r3">${holder(t.holder)}<span>${esc(t.waveName || t.epic)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div></button>`;
 }
 function waveGroups(list) {
   const all = live();
@@ -905,7 +983,7 @@ function renderTable() {
     return `<section class="group">${head}
       <div class="tablewrap" style="--gc:var(${c})"><table><thead><tr><th>Ticket</th><th>${state.group === 'plan' ? 'Epic' : 'Plan'}</th><th>Holder</th><th>Status</th><th>Depends on</th><th>Updated</th></tr></thead><tbody>
       ${rows.map((t) => `<tr class="row" tabindex="0" data-id="${esc(t.id)}">
-        <td class="title"><div class="t">${ticketRing(t)}<span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span><span>${esc(t.title)}</span>${badges(t)}</div></td>
+        <td class="title"><div class="t">${ticketRing(t)}<span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span><span>${esc(t.title)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div></td>
         <td>${esc(state.group === 'plan' ? t.epic : (t.wave ? t.wave + ' · ' + t.waveName : t.epic))}</td><td>${t.waiting ? holderTool(t) : holder(t.holder)}</td>
         <td class="statuscell">${statusCell(t.archived ? 'archived' : t.status)}</td><td>${deps(t)}</td><td class="upd">${when(t.updatedAt)}</td></tr>`).join('')}
       </tbody></table></div></section>`;
@@ -925,7 +1003,7 @@ function renderKanban() {
       <div class="cards" id="col-${s}">${cards.map((t) => `<button class="card" draggable="${!narrow.matches}" data-id="${esc(t.id)}">
         <div class="meta"><span><span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span></span>${t.waiting ? holderTool(t) : holder(t.holder)}</div>
         <div class="ttl">${esc(t.title)}</div>
-        <div class="meta"><span class="kind">${esc(t.wave ? t.wave + ' · ' + t.waveName : t.epic)}</span>${badges(t)}</div>
+        <div class="meta"><span class="kind">${esc(t.wave ? t.wave + ' · ' + t.waveName : t.epic)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div>
       </button>`).join('')}</div></section>`;
   }).join('')}</div>`;
 }
@@ -980,6 +1058,7 @@ function render() {
     if (kb) kb.scrollLeft = kanbanX;
     window.scrollTo(0, y);
   }
+  patchNow();
   if (state.open) renderPanel();
 }
 
@@ -1010,7 +1089,7 @@ function panelSignature(t) {
     prev: t.prev, pick: preferredRunner(), canWrite: state.canWrite,
     log: entries.length, last: last && [last.at, last.kind, last.text],
     run: run && [run.id, run.status, run.model, run.branch, run.endedAt, run.exitCode, run.role],
-    online: pcOnline(), busy: state.runnerStatus?.busyWith || null, running: !!activeRunFor(t.id),
+    online: pcOnline(), busy: state.runnerStatus?.busyWith || null, running: !!activeRunFor(t.id), unlocks: unlocksOf(t.id).join(),
   });
 }
 function renderPanel() {
@@ -1060,7 +1139,8 @@ function renderPanel() {
       <section class="sec"><h4>Description</h4><div class="prose">
         ${t.extends?.length ? `<p><strong>Extends:</strong> ${t.extends.map(esc).join(', ')}</p>` : ''}
         ${md(t.scope ? '**Scope:** ' + t.scope : '')}${md(t.ref ? '**Ref:** ' + t.ref : '')}
-        <p><strong>Depends on:</strong> ${deps(t)}</p></div></section>
+        <p><strong>Depends on:</strong> ${deps(t)}</p>
+        ${unlocksOf(t.id).length ? `<p><strong>${t.status === 'done' ? 'Was needed by' : 'Unlocks'}:</strong> ${unlocksOf(t.id).map((d) => `<button class="dep" type="button" data-goto-ticket="${esc(d)}">${esc(d)}</button>`).join('')}</p>` : ''}</div></section>
       <section class="sec"><h4>QA checklist</h4>${checks ? `<ul class="checks">${checks}</ul>` : '<p class="empty">No QA items.</p>'}</section>
       <section class="sec"><h4>QA report</h4>${report ? `<div class="prose">${md(report.text)}</div><div class="by empty">${when(report.at)}</div>` : '<p class="empty">The QA agent has not reported yet.</p>'}</section>
       <section class="sec"><h4>SEO plan</h4>${seoReport ? `<div class="prose">${md(seoReport.text)}</div><div class="by empty">${when(seoReport.at)}</div>` : '<p class="empty">No SEO plan yet. Start the ticket with "SEO plan first", or ask for an SEO review.</p>'}</section>
@@ -1081,6 +1161,7 @@ function renderPanel() {
   $('#close').onclick = closePanel;
   if ($('#edit')) $('#edit').onclick = () => openTicketForm(t);
   $('#export-one').onclick = () => exportCsv([t], 'tickets');
+  p.querySelectorAll('[data-goto-ticket]').forEach((b) => b.onclick = () => openPanel(b.dataset.gotoTicket));
   wireActions(t);
 }
 function ideaVerb(t) { return t.status === 'done' ? 'Rework' : 'Start'; }
@@ -1528,7 +1609,7 @@ $('#search').oninput = (e) => { state.q = e.target.value; render(); renderToolsC
 $('#kind').onchange = (e) => { state.kind = e.target.value; render(); renderToolsCount(); };
 $('#grouping').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; state.group = b.dataset.group; try { localStorage.setItem('elme-board-group', state.group); } catch {} render(); renderToolsCount(); };
 $('#epic').onchange = (e) => { state.epic = e.target.value; render(); renderToolsCount(); };
-$('#status').onchange = (e) => { state.status = e.target.value; render(); renderToolsCount(); };
+$('#status').onchange = (e) => { state.status = e.target.value; savePick(); render(); renderToolsCount(); };
 $('#holder').onchange = (e) => { state.who = e.target.value; render(); renderToolsCount(); };
 $('#hide-done').onclick = () => {
   state.hideDone = !state.hideDone; state.openWaves.clear();
@@ -1586,10 +1667,11 @@ $('#view').addEventListener('click', (e) => {
     return;
   }
   const sp = e.target.closest('[data-status-pick], [data-seg]');
-  if (sp) { const k = sp.dataset.statusPick || sp.dataset.seg; state.status = state.status === k ? '' : k; $('#status').value = state.status; render(); renderToolsCount(); return; }
+  if (sp) { const k = sp.dataset.statusPick || sp.dataset.seg; state.status = state.status === k ? '' : k; $('#status').value = state.status; savePick(); render(); renderToolsCount(); return; }
   const wp = e.target.closest('[data-wave-pick]');
-  if (wp) { const w = Number(wp.dataset.wavePick); state.wave = state.wave === w ? 0 : w; render(); renderToolsCount(); return; }
-  if (e.target.closest('[data-ov-clear]')) { state.status = ''; state.wave = 0; $('#status').value = ''; render(); renderToolsCount(); return; }
+  if (wp) { const w = Number(wp.dataset.wavePick); state.wave = state.wave === w ? 0 : w; savePick(); render(); renderToolsCount(); return; }
+  if (e.target.closest('[data-ov-toggle]')) { state.ovMini = !state.ovMini; try { localStorage.setItem('elme-board-overview', state.ovMini ? 'mini' : 'full'); } catch {} render(); return; }
+  if (e.target.closest('[data-ov-clear]')) { state.status = ''; state.wave = 0; $('#status').value = ''; savePick(); render(); renderToolsCount(); return; }
   const wt = e.target.closest('[data-wave-toggle]');
   if (wt) { const w = Number(wt.dataset.waveToggle); state.openWaves.has(w) ? state.openWaves.delete(w) : state.openWaves.add(w); render(); return; }
   const qr = e.target.closest('[data-queue-ready]');
@@ -1633,8 +1715,21 @@ function syncHash() {
 window.addEventListener('popstate', syncHash);
 window.addEventListener('hashchange', syncHash);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.open) closePanel(); });
+// Keyboard: / = search, j / k = next / previous ticket of the current list (opens the first one when none is open).
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (e.key === '/' && !state.open) { e.preventDefault(); $('#search').focus(); return; }
+  if (e.key !== 'j' && e.key !== 'k') return;
+  if (state.view === 'decisions' || String(state.open || '').startsWith(NEW_TICKET)) return;
+  const ids = [...document.querySelectorAll('#view [data-id]:not(.qmain):not(.nowmain)')].map((el) => el.dataset.id);
+  if (!ids.length) return;
+  const at = ids.indexOf(state.open);
+  const next = at < 0 ? 0 : Math.min(ids.length - 1, Math.max(0, at + (e.key === 'j' ? 1 : -1)));
+  if (ids[next] !== state.open) openPanel(ids[next]);
+});
 
 /* Boot */
+$('#status').value = state.status;
 try { const g = localStorage.getItem('elme-board-group'); if (g) state.group = g; } catch {}
 try { const v = localStorage.getItem('elme-board-view'); if (v) document.querySelector(`.tabs [data-view="${v}"]`)?.click(); } catch {}
 // The queue block shows PC status and which ticket runs; both come with board:meta, after the tickets.
@@ -1645,7 +1740,7 @@ function syncQueueView() {
   const sig = `${state.metaSeen}|${pcOnline()}|${running}`;
   if (sig === queueSig) return;
   queueSig = sig;
-  if (state.view === 'table') render();
+  if (state.view !== 'decisions') render();
 }
 window.addEventListener('board:meta', (e) => {
   state.runnerStatus = e.detail?.runnerStatus || null;
@@ -1654,11 +1749,13 @@ window.addEventListener('board:meta', (e) => {
   state.metaSeen = true;
   renderPcStatus();
   syncQueueView();
+  patchNow();
   // Do not rebuild the whole panel (that resets scroll on the phone).
   patchLiveRun();
 });
 setInterval(() => {
   patchLiveRun();
+  patchNow();
   renderPcStatus();
   syncQueueView();
 }, 1000);
