@@ -6,8 +6,10 @@
 //
 // Env (from .env or the shell), same as cli/board.mjs: BOARD_URL, BOARD_TOKEN, VERCEL_PROTECTION_BYPASS.
 // Safe to run twice: a ticket whose title is already on the board is skipped.
-// File: { note, tickets: [{ key, title, kind, epic, deps, scope, ref, qa }] }.
+// File: { note, epic?, wave?, tickets: [{ key, title, kind, epic, wave?, deps, scope, ref, qa }] }.
+//   epic / wave on the file apply to every ticket that has none; `wave` is a plan stage number that exists on the board.
 //   epic  - matched to a board epic by name or by its leading number ("5 PDP" finds the board's epic 5); wave comes from that epic.
+//   extends - for UX (QA only) tickets: board ids that must be done before the ticket counts as ready.
 //   deps  - board ids ("FE-25"; unknown ids are dropped with a warning) or "@key" of another ticket in the file.
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -26,7 +28,7 @@ try {
 }
 
 async function main() {
-  const { note, tickets } = JSON.parse(readFileSync(file, 'utf8'));
+  const { note, tickets, epic: fileEpic, wave: fileWave } = JSON.parse(readFileSync(file, 'utf8'));
   const board = await api('/api/board');
   const existing = Object.values(board.tickets || {});
   const byTitle = new Map(existing.map((t) => [norm(t.title), t.id]));
@@ -38,15 +40,17 @@ async function main() {
   for (const t of order(tickets)) {
     const have = byTitle.get(norm(t.title));
     if (have) { created.set(t.key, have); console.log(`  skip   ${have}  ${t.title} (already on the board)`); continue; }
-    const place = placeFor(t.epic, existing);
+    const place = placeFor(t.epic || fileEpic, existing, t.wave ?? fileWave);
     const deps = [];
     for (const d of t.deps || []) {
       if (d.startsWith('@')) { const id = created.get(d.slice(1)); id ? deps.push(id) : apply && console.warn(`         ${t.key}: dependency ${d} was not created`); }
       else if (ids.has(d)) deps.push(d);
       else console.warn(`         ${t.key}: dependency ${d} is not on the board, dropped`);
     }
+    const ext = (t.extends || []).filter((d) => ids.has(d) || (console.warn(`         ${t.key}: ${d} is not on the board, dropped from extends`), false));
     if (!apply) { created.set(t.key, `@${t.key}`); console.log(`  add    ${t.kind}  ${t.title}  [${place.epic}${place.wave ? `, stage ${place.wave}` : ''}]`); added++; continue; }
     const made = await api('/api/tickets', { method: 'POST', body: JSON.stringify({ title: t.title, kind: t.kind, scope: t.scope, ref: t.ref, qa: t.qa, deps, ...place }) });
+    if (ext.length) await api(`/api/tickets/${made.id}`, { method: 'PATCH', body: JSON.stringify({ patch: { extends: ext } }) });
     await api(`/api/log/${made.id}`, { method: 'POST', body: JSON.stringify({ entry: { at: Date.now(), who: 'roman', kind: 'log', text: note || 'Created by import-tickets.' } }) });
     created.set(t.key, made.id); ids.add(made.id); added++;
     console.log(`  added  ${made.id}  ${t.title}`);
@@ -68,13 +72,14 @@ function order(list) {
 }
 
 /** The board epic this ticket belongs to, and the plan stage most tickets of that epic sit in. */
-function placeFor(epic, existing) {
+function placeFor(epic, existing, askedWave) {
   const num = (s) => String(s || '').match(/^\s*(\d+)/)?.[1];
   const epics = [...new Set(existing.map((t) => t.epic).filter(Boolean))];
   const found = epics.find((e) => norm(e) === norm(epic)) || (num(epic) && epics.find((e) => num(e) === num(epic))) || epic;
   const count = new Map();
   for (const t of existing) if (t.epic === found && t.wave) count.set(t.wave, (count.get(t.wave) || 0) + 1);
-  const wave = [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (askedWave && !existing.some((t) => t.wave === askedWave)) throw new Error(`Plan stage ${askedWave} is not on the board`);
+  const wave = askedWave || [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const waveName = existing.find((t) => t.wave === wave)?.waveName;
   return wave ? { epic: found, wave, waveName } : { epic: found };
 }

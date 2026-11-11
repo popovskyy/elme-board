@@ -1,0 +1,453 @@
+{
+  "note": "Pre-launch QA round, guest only. Send to QA when the storefront is feature complete; a failed check comes back to Roman with the report.",
+  "epic": "12 Pre-launch QA",
+  "wave": 8,
+  "tickets": [
+    {
+      "key": "smoke",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): every public URL answers",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Crawl from the home page: every link of the header menu, mobile menu, footer and home page, plus 30 products and 15 categories picked across the catalogue. Record status, final URL after redirects and time to first byte. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "No URL answers 5xx, and none shows an exception, stack trace or \"There has been an error processing your request\"",
+        "No internal link ends in 404 or in a redirect chain longer than one hop",
+        "No broken images (naturalWidth 0) on the crawled pages",
+        "No http:// asset or link on an https page",
+        "Slowest page answers in under 3 s on the local stack; the five slowest are listed"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-18",
+        "FE-25",
+        "FE-10"
+      ]
+    },
+    {
+      "key": "header",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): header, mega menu and mobile menu",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Top bar, logo, mega menu (every level), search field, Log in / Sign up, Contact Us; sticky header on scroll; mobile header and menu drawer (open, drill down, back, close). Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Every menu item opens the right category or page",
+        "Mega menu opens on hover and on keyboard focus, closes on Esc and on leaving",
+        "Mobile drawer: open, drill down, back, close; the page behind does not scroll",
+        "Guest sees Log in and Sign up, and no cart count, prices or account links",
+        "Sticky header never covers page content or the focused element"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-06",
+        "FE-08",
+        "FE-09"
+      ]
+    },
+    {
+      "key": "footer",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): footer, newsletter and signup popup",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Footer link columns, contact details, social links, newsletter form in the footer and the signup popup (appears once, can be closed, does not come back on the next page). Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Every footer link opens the right page; social links open in a new tab",
+        "Newsletter form: empty and invalid email show an error, a valid one shows success",
+        "Popup closes with the button, Esc and a click outside, and stays closed",
+        "Phone and email are tel: and mailto: links"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-10",
+        "FE-11"
+      ]
+    },
+    {
+      "key": "home",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): home page",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Every section top to bottom: hero, category tiles, content sections, product carousels, Instagram block, Our Difference, Need assistance. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "No empty section, placeholder text or broken carousel",
+        "Every button and tile goes where its label says",
+        "Carousels work with swipe, arrows and keyboard",
+        "No price is shown anywhere; cards say \"Sign in to see pricing\"",
+        "One H1 on the page"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-14",
+        "FE-16",
+        "FE-17"
+      ]
+    },
+    {
+      "key": "plp",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): category pages",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Five categories of different size (/flowers-plants.html, /new.html, a small leaf category, an empty one if any, /made-to-order-sofas.html): banner, title, breadcrumbs, description, grid, sort, per page, pagination, Grid / List view. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Grid shows the right number of products per page and the pager reaches the last page",
+        "Sort and per page change the list and survive paging; no price sort for guests",
+        "Cards show image, name, SKU, stock or Made To Order label, and \"Sign in to see pricing\"",
+        "Breadcrumbs are right and clickable",
+        "An empty category shows a clear message, not a blank page"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-18",
+        "FE-20",
+        "FE-86",
+        "FE-87"
+      ]
+    },
+    {
+      "key": "filters",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): filters",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Filters drawer on /new.html and /flowers-plants.html: open, pick several values in several filters, range filters, chips, Clear all, close; then reload and use the browser Back button. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Counts next to values match the number of products shown after picking",
+        "Chips show every active filter and remove just that one",
+        "Filtered URL can be reloaded and shared and shows the same list",
+        "Back button returns to the previous filter state",
+        "Drawer traps focus, closes on Esc, and works at 390 px"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-21"
+      ]
+    },
+    {
+      "key": "search",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): search",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Header search: autocomplete while typing, results page, no-results page. Try a product name, an exact SKU, part of a SKU, a category name, a typo, one letter, 200 characters, and <script>alert(1)</script>. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Exact SKU puts that product first",
+        "Autocomplete opens, can be walked with arrow keys, closes on Esc",
+        "No-results page offers a way on (suggestions, categories or contact)",
+        "Special characters and the script string are shown as text and break nothing",
+        "No prices in autocomplete or results"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-22",
+        "FE-23"
+      ]
+    },
+    {
+      "key": "pdp",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): product page",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Ten products of different types (plant, vase, furniture, sale item, out of stock, one with many images, one with one image): gallery, zoom, thumbnails, swipe, badge, name, SKU, stock line, details accordion, dimensions, delivery block, recommendations. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Gallery: arrows, thumbnails, swipe and fullscreen zoom all work",
+        "Guest sees \"Sign in to see pricing\" with Login and \"Apply here\" links that go to the right pages",
+        "No price, quantity field or add to cart in the page HTML source",
+        "Accordion sections open and close; empty ones are hidden",
+        "Recommendation blocks show cards or are hidden; none is empty"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-25",
+        "FE-26",
+        "FE-29",
+        "FE-30"
+      ]
+    },
+    {
+      "key": "sofas",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): sofa pages: configurations and fabric swatches",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Three modular sofa products (Riley Apt and two other ranges): Configuration picker and \"See all configurations\" dialog, fabric swatches in Quick Ship and Made To Order groups, the Made To Order modal, lead time text. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Every configuration and every swatch opens a product that exists (no 404)",
+        "Current configuration and current fabric are marked",
+        "Made To Order swatch opens the modal; it closes on Esc and confirm goes to the product",
+        "Swatches and the dialog fit at 390 px with no horizontal scroll",
+        "No price appears in the picker, the dialog or the modal"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-84",
+        "FE-85"
+      ]
+    },
+    {
+      "key": "gates",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): login-only rules",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Open as a guest: /quick-order, /quick-order/cart, /checkout, /wishlist, /customer/account, /sales/order/history, /virtual-catalogues, /recently_ordered. Then look for prices where a guest must not get them: page source of a product and a category, JSON-LD, /customer/section/load, REST /rest/V1/products and /rest/V1/guest-carts, GraphQL products query. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "Roadmap FE-53 and decision D15; module Elme_LoginOnly",
+      "qa": [
+        "Every gated URL sends the guest to login with \"Please login to access this page\"",
+        "No price, tier price or special price in any page source or JSON-LD",
+        "Anonymous REST, SOAP and GraphQL refuse product prices and guest carts (D15)",
+        "A guest cannot add to cart by posting to checkout/cart/add directly",
+        "Nothing customer-specific is in a cacheable response"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-53"
+      ]
+    },
+    {
+      "key": "auth",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): login, forgot password, apply for an account",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Forms only, no real account: login with empty and wrong details, forgot password with an unknown and a malformed email, and every field of \"Apply for an account\" (empty, wrong ABN, wrong phone, wrong postcode, mismatched emails). Submit one full application with test data marked QA TEST. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Each wrong field shows its own clear message next to the field",
+        "Wrong login says the details are wrong without saying which one",
+        "Forgot password answers the same for a known and an unknown email",
+        "Fields have the right type and autocomplete, so a phone keyboard and autofill work",
+        "The submitted application ends on a clear confirmation and no error"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-35",
+        "FE-36"
+      ]
+    },
+    {
+      "key": "cms",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): content and help pages",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. /about-us, /career-opportunities, /outlet-and-clearance-store, /style-sourcebook, /meet-the-team, /fairs-events, /become-a-stockist, /faqs, /shipping-and-returns, /privacy-policy, /website-terms-conditions, /terms-conditions-of-trade, and the collaboration landing page. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Every page renders with its banner, breadcrumbs and one H1",
+        "No lorem ipsum, placeholder image or leftover Page Builder class showing as text",
+        "Help side menu marks the current page and becomes a dropdown on the phone",
+        "FAQ accordion opens and closes; links inside the text work",
+        "Each page has its own meta title and description"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-45",
+        "FE-89",
+        "FE-93"
+      ]
+    },
+    {
+      "key": "forms",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): contact, showroom locator, appointment, outlet signup",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Contact Us form (empty, invalid, valid with QA TEST in the message), showroom locator list and a location page, /book-appointment, /elme-outlet-signup. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Contact form validates each field and shows success after a valid send",
+        "Spam protection is present and does not block a normal send",
+        "Showroom pages show address, hours, phone as tel: and a working map or directions link",
+        "Appointment and outlet signup forms load, validate and confirm"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-46",
+        "FE-51",
+        "FE-90",
+        "FE-91"
+      ]
+    },
+    {
+      "key": "inspire",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): Shop the Looks, catalogues, Instagram",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. /shop-the-looks (hotspots on images, product popovers), /virtual-catalogues and /virtual-special-offers-catalogue as a guest, /shoppable-instagram and the \"As styled by you\" slider. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Hotspots open the right product and can be reached with the keyboard",
+        "Catalogue pages show the sign-in message to a guest and no catalogue content",
+        "Instagram blocks show images or are hidden; never an empty frame",
+        "No prices in hotspots or popovers"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-49",
+        "FE-50",
+        "FE-68",
+        "FE-92"
+      ]
+    },
+    {
+      "key": "errors",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): 404 and error pages",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. A made-up URL, a made-up product URL, /catalog/product/view/id/99999999, a made-up category, a URL with a very long query string, and the 503 page (ask Roman before switching maintenance mode on). Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Unknown URLs answer HTTP 404 with the Elme 404 page, not 200 and not a blank page",
+        "404 page has Back to home, Contact us and search, and they work",
+        "No stack trace, file path or Magento version on any error page",
+        "503 page shows in maintenance mode with HTTP 503"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-52",
+        "FE-94"
+      ]
+    },
+    {
+      "key": "responsive",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): responsive sweep",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Home, a category, a product, a sofa product, search results, login, registration, contact, a help page and the 404 page at 360, 390, 768, 1024, 1440 and 1920 px, portrait and landscape on the phone sizes. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill: browse.mjs",
+      "qa": [
+        "No horizontal scroll at any width",
+        "No overlapping or cut-off text, no image stretched out of proportion",
+        "Tap targets on the phone are at least 44 px and not closer than 8 px",
+        "Drawers, modals and the menu fit the screen and can be closed at every width",
+        "A screenshot of each page at each width is attached"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-18",
+        "FE-26",
+        "FE-29"
+      ]
+    },
+    {
+      "key": "a11y",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): keyboard and accessibility",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Walk the guest path with the keyboard only: home → menu → category → filters → product → \"Apply here\" → registration. Then run axe on home, category, product, login, registration and contact. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Every control is reachable with Tab in a sensible order and has a visible focus ring",
+        "Esc closes every drawer, modal and menu and returns focus to what opened it",
+        "axe reports 0 critical and 0 serious issues on the six pages",
+        "Images have alt text; icon buttons have a name; form fields have labels",
+        "Headings go in order with one H1 per page"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-18",
+        "FE-26",
+        "FE-29",
+        "UX-08"
+      ]
+    },
+    {
+      "key": "perf",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): performance and console",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Lighthouse mobile on home, a category and a product (three runs each, median). Then load each of the ten page types with the console open. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Lighthouse mobile: Performance at least 90, Accessibility at least 95, CLS under 0.1 on all three pages",
+        "No console errors and no CSP violations on any of the ten page types",
+        "Every image has width and height; below-the-fold images load lazily",
+        "No request fails (4xx, 5xx) while a page loads",
+        "Results and the list of the heaviest requests are attached"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-18",
+        "FE-26",
+        "FE-29",
+        "UX-09"
+      ]
+    },
+    {
+      "key": "seo",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): SEO as a search engine sees it",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Fetch as a guest without JavaScript: home, three categories, a filtered and a paged category, five products, search results, login, a CMS page. Check /robots.txt and the XML sitemap. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "Roadmap FE-55 and BE-22",
+      "qa": [
+        "Every page has a unique title and meta description, one H1 and a canonical URL",
+        "Filtered and paged categories point their canonical where the roadmap says; search and account pages are noindex",
+        "Product JSON-LD is valid and has no price for guests; BreadcrumbList matches the breadcrumbs",
+        "robots.txt blocks account, cart, checkout and search; the sitemap lists only pages that answer 200",
+        "Ten old production URLs answer one 301 to the right new page"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-55",
+        "BE-22"
+      ]
+    },
+    {
+      "key": "scripts",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): chat, tracking and third-party scripts",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. On home, category, product and contact: Zendesk chat button, Klaviyo, GTM / GA4, Triple Whale and any other third-party script that loads. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Chat button opens the chat and never covers a button, a sticky bar or the filters button",
+        "GTM fires a page view on every page and a view_item on a product page",
+        "Every third-party host that loads is on the agreed list; the report names any extra one",
+        "Blocking all third-party hosts leaves the site fully usable"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-54",
+        "FE-96"
+      ]
+    },
+    {
+      "key": "browsers",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): browsers",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Run the guest path (home → menu → category → filters → search → product → gallery → login page → registration form → contact form) in Chromium, Firefox and WebKit with Playwright, desktop and phone size. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "hyva-playwright-test skill",
+      "qa": [
+        "The path completes in all three engines at both sizes",
+        "No layout difference that hides content or breaks a control",
+        "No console error that appears in only one engine",
+        "Screenshots of each step per engine are attached"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-18",
+        "FE-26",
+        "FE-29"
+      ]
+    },
+    {
+      "key": "visual",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): side by side with production",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. Same guest pages on the new site and on production at 390 and 1440 px: home, two categories, three products, a sofa product, login, registration, contact, two help pages, 404. Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill: browse.mjs (new vs old screenshots)",
+      "qa": [
+        "Screenshot pairs are attached for every page and both widths",
+        "Every block production has is on the new page, or the report names it as missing",
+        "Differences are listed as intended (roadmap says so) or not intended",
+        "Texts a customer acts on (phone, email, address, opening hours) are the same on both"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-18",
+        "FE-26",
+        "FE-29"
+      ]
+    },
+    {
+      "key": "hygiene",
+      "kind": "UX",
+      "title": "Pre-launch QA (guest): what a stranger can see",
+      "scope": "Test only, as a guest: never log in, never change code or data. Site: https://elme-hyva.local (production for comparison: https://www.elmeliving.com). Check at 390 px and 1440 px unless the ticket says otherwise. As an anonymous visitor: response headers on home and a product, /admin and common admin paths, /setup, /pub/errors, /.git/config, /composer.json, /app/etc/env.php, /var/log, /phpinfo.php, directory listings under /media and /static, and the forms (form key present). Report every problem on one line, worst first: URL, viewport, steps, what you saw, what you expected, screenshot file. A page or feature that is not built yet is a finding, not a reason to stop.",
+      "ref": "elme-qa skill (smoke.sh, browse.mjs); roadmap docs/frontend-tickets.md",
+      "qa": [
+        "Admin is not at /admin and none of the guessed paths shows a login",
+        "No config, log, .git or composer file is served, and no directory lists its files",
+        "Responses carry HSTS, X-Content-Type-Options, a frame rule and a Content-Security-Policy",
+        "No response header or page shows the Magento or PHP version",
+        "Every POST form carries a form key and refuses a post without it"
+      ],
+      "deps": [],
+      "extends": [
+        "FE-53"
+      ]
+    }
+  ]
+}
