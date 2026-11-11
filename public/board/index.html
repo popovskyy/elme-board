@@ -74,6 +74,12 @@
   --h-be: #C9D4DF;
   --h-qa: #E2D8C5;
   --h-roman: #E9C873;
+  --rg-todo: #BDB7A8;
+  --rg-progress: #D0A22B;
+  --rg-qa: #7F9AB3;
+  --rg-review: #4F7391;
+  --rg-blocked: #C4573D;
+  --rg-done: #55644A;
   --shadow: 0 1px 2px rgb(47 46 42 / .05);
   --warn-text: #9E3F2A;
   --ok-text: #55644A;
@@ -144,8 +150,6 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .more > summary::after { content: '+'; margin-left: auto; font-size: 18px; }
 .more[open] > summary::after { content: '–'; }
 .more[open] { display: grid; gap: 10px; }
-.wavebar .track { width: 120px; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
-.wavebar .fill { height: 100%; background: var(--accent); }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 0; font-size: 12px; font-weight: 700; letter-spacing: .02em; }
 .chip.ready { background: color-mix(in srgb, var(--st-done) 45%, var(--surface)); color: var(--ok-text); }
 .chip.work { background: color-mix(in srgb, var(--st-progress) 40%, var(--surface)); color: var(--fg); }
@@ -186,6 +190,60 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .queue .qmain:hover .qttl { text-decoration: underline; }
 .queue .qpos { font: 600 12px var(--mono); color: var(--muted); min-width: 3ch; text-align: center; }
 .queue .qbtns { display: flex; gap: 2px; margin-left: auto; }
+
+/* Overview: status donut, plan stage rings */
+.ring { display: block; flex: none; transform: rotate(-90deg); overflow: visible; }
+.ring circle { fill: none; }
+.ring .trk { stroke: var(--surface-2); }
+.overview { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 28px; align-items: center; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 22px; }
+.ov-status { display: flex; align-items: center; gap: 18px; }
+.donut { position: relative; flex: none; }
+.donut .seg { cursor: pointer; }
+.donut.picked .seg:not(.on) { opacity: .28; }
+.donut .mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut .mid b { font: 400 34px/1 var(--display); font-variant-numeric: tabular-nums; }
+.donut .mid span { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .02em; margin-top: 3px; max-width: 86px; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, auto); gap: 2px 6px; }
+.legend button { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 1px solid transparent; padding: 5px 10px 5px 8px; min-height: 32px; font-weight: 600; font-size: 13px; white-space: nowrap; text-align: left; }
+.legend button i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
+.legend button b { margin-left: auto; padding-left: 10px; font-variant-numeric: tabular-nums; }
+.legend button:hover, .legend button.hot { background: var(--surface-2); }
+.legend button[aria-pressed="true"] { border-color: var(--fg); background: var(--surface-2); }
+.legend button.zero { color: var(--muted); font-weight: 500; }
+.ov-waves { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; min-width: 0; }
+.wcard { flex: none; display: grid; grid-template-columns: auto auto; gap: 2px 10px; align-items: center; text-align: left; background: var(--surface); border: 1px solid var(--line); padding: 8px 14px 8px 10px; min-width: 150px; max-width: 230px; }
+.wcard .wring { position: relative; grid-row: 1 / 3; }
+.wcard .wring span { position: absolute; inset: 0; display: grid; place-content: center; font: 700 11px var(--mono); color: var(--fg); }
+.wcard .wn { font-weight: 700; font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wcard .ws { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wcard .ws em { font-style: normal; font-weight: 700; color: var(--warn-text); }
+.wcard .ws u { text-decoration: none; font-weight: 700; color: var(--fg); }
+.wcard:hover { border-color: var(--accent); }
+.wcard[aria-pressed="true"] { border-color: var(--fg); background: var(--surface-2); box-shadow: inset 0 -3px 0 var(--accent); }
+.wcard.complete .wn { color: var(--muted); }
+.ov-clear { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 10px; color: var(--muted); font-size: 13px; }
+.tring { display: inline-block; vertical-align: middle; flex: none; }
+.queue .qmain .tring { align-self: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .ring .seg { transition: stroke-width 160ms var(--ease-out), opacity 160ms ease; }
+  .donut .seg:hover, .donut .seg.hot { stroke-width: 22px; }
+  .tring.live { animation: pulse 1.4s ease-in-out infinite; }
+  .wcard { transition: border-color 160ms ease, background-color 160ms ease, transform 140ms var(--ease-out); }
+  .wcard:active { transform: scale(0.97); }
+}
+/* Ticket panel: where the ticket is on its way to Done */
+.steps { list-style: none; margin: 2px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); }
+.steps li { position: relative; display: grid; justify-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.2; }
+.steps li::before { content: ""; position: absolute; top: 7px; right: 50%; width: 100%; height: 2px; background: var(--line); }
+.steps li:first-child::before { display: none; }
+.steps li i { position: relative; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); display: grid; place-items: center; }
+.steps li.past::before, .steps li.now::before { background: var(--accent); }
+.steps li.past i { background: var(--accent); border-color: var(--accent); }
+.steps li.past i::after { content: ""; width: 7px; height: 4px; border-left: 2px solid var(--on-accent); border-bottom: 2px solid var(--on-accent); transform: rotate(-45deg) translateY(-1px); }
+.steps li.now { color: var(--fg); }
+.steps li.now i { border-color: var(--sc, var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc, var(--accent)) 28%, transparent); }
+.steps li.now i::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sc, var(--accent)); }
+.steps li.now.blocked { color: var(--warn-text); }
 
 /* Panel extras */
 .ph-btns { display: flex; gap: 6px; flex: none; }
@@ -333,7 +391,6 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   header.top { position: static !important; }
   .titlerow { flex-wrap: wrap; row-gap: 10px; }
   .pc-status .txt { white-space: nowrap; }
-  .wavebar .track { display: none; }
   .new-ticket span, .export-btn span { display: none; }
   .export-btn { padding: 8px 12px; }
   .new-ticket { padding: 8px 12px; }
@@ -372,6 +429,13 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .filters input { grid-column: 1 / -1; width: 100%; max-width: none; }
   .filters select { width: 100%; }
   .hide-done { width: 100%; justify-content: center; min-height: 48px; grid-column: 1 / -1; }
+  .overview { grid-template-columns: minmax(0, 1fr); padding: 14px; gap: 14px; }
+  .ov-status { gap: 12px; }
+  .legend { grid-template-columns: 1fr; flex: 1; min-width: 0; }
+  .legend button { min-height: 36px; font-size: 14px; }
+  .ov-waves { margin-inline: -14px; padding-inline: 14px; scrollbar-width: none; }
+  .wcard { min-height: 56px; }
+  .steps li { font-size: 10px; }
   .queue .qmain { flex-basis: 100%; }
   .queue .qttl { white-space: normal; }
   .ph-btns .close { width: 48px; height: 48px; }
@@ -494,6 +558,8 @@ const STATUS = {
 };
 const HOLDER = { fe: ['FE', '--h-fe', 'FE agent'], be: ['BE', '--h-be', 'BE agent'], qa: ['QA', '--h-qa', 'QA agent'], idea: ['Mkt', '--h-roman', 'Marketing agent'], seo: ['SEO', '--st-qa', 'SEO agent'], roman: ['R', '--h-roman', 'Roman'] };
 const KANBAN_ORDER = ['todo', 'in_progress', 'in_qa', 'review', 'blocked', 'done'];
+const RING = { todo: '--rg-todo', in_progress: '--rg-progress', in_qa: '--rg-qa', review: '--rg-review', blocked: '--rg-blocked', done: '--rg-done' };
+const STEPS = [['todo', 'To do'], ['in_progress', 'Build'], ['in_qa', 'QA'], ['review', 'Your review'], ['done', 'Done']];
 const GROUPS = [
   ['Waiting for you', (t) => t.status === 'review' || t.status === 'blocked', '--st-review'],
   ['In progress', (t) => t.status === 'in_progress', '--st-progress'],
@@ -502,7 +568,7 @@ const GROUPS = [
   ['Done', (t) => t.status === 'done', '--st-done'],
 ];
 
-const state = { tickets: new Map(), decisions: new Map(), view: 'table', group: 'plan', q: '', kind: '', epic: '', status: '', who: '', hideDone: true, openWaves: new Set(), focus: '', open: null, log: null, canWrite: true, runs: {}, runnerStatus: null, pickRunner: 'claude' };
+const state = { tickets: new Map(), decisions: new Map(), view: 'table', group: 'plan', q: '', kind: '', epic: '', status: '', who: '', wave: 0, hideDone: true, openWaves: new Set(), focus: '', open: null, log: null, canWrite: true, runs: {}, runnerStatus: null, pickRunner: 'claude' };
 try { const r = localStorage.getItem('elme-board-runner'); if (r === 'claude' || r === 'cursor') state.pickRunner = r; } catch {}
 try { state.hideDone = localStorage.getItem('elme-board-hide-done') !== '0'; } catch {}
 const narrow = matchMedia('(max-width: 720px)');
@@ -659,16 +725,84 @@ function patchLiveRun() {
     if (atBottom) pre.scrollTop = pre.scrollHeight;
   }
 }
+/** Ring of status shares. parts: [[statusKey, count]]; with `pick` each arc is a clickable segment. */
+function ring(parts, size, w, { pick = false, cls = '' } = {}) {
+  const total = parts.reduce((n, [, c]) => n + c, 0);
+  const r = (size - w) / 2, c = size / 2;
+  const shown = parts.filter(([, n]) => n > 0);
+  const gap = shown.length > 1 ? (size > 80 ? 0.8 : 2.5) : 0;
+  let at = 0;
+  const arcs = total ? shown.map(([k, n]) => {
+    const len = n / total * 100;
+    const arc = `<circle class="seg${state.status === k && pick ? ' on' : ''}" cx="${c}" cy="${c}" r="${r}" stroke="var(${RING[k]})" stroke-width="${w}" pathLength="100" stroke-dasharray="${Math.max(len - gap, 0.6).toFixed(2)} 100" stroke-dashoffset="${(-at).toFixed(2)}"${pick ? ` data-seg="${k}"` : ''}></circle>`;
+    at += len;
+    return arc;
+  }).join('') : '';
+  return `<svg class="ring ${cls}" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle class="trk" cx="${c}" cy="${c}" r="${r}" stroke-width="${w}"></circle>${arcs}</svg>`;
+}
+const statusCounts = (list) => KANBAN_ORDER.map((s) => [s, list.filter((t) => t.status === s).length]);
+/** Ring order: finished work first, so the done arc always starts at 12 o'clock. */
+const ringParts = (list) => ['done', 'review', 'in_qa', 'in_progress', 'blocked', 'todo'].map((s) => [s, list.filter((t) => t.status === s).length]);
+/** How far a ticket is on To do → Build → QA → Your review → Done. A blocked ticket stays on the step it left. */
+function stepOf(t) {
+  const s = t.status === 'blocked' ? (t.prev?.status || 'in_progress') : t.status;
+  return Math.max(0, STEPS.findIndex(([k]) => k === s));
+}
+function ticketRing(t) {
+  const i = stepOf(t);
+  const blocked = t.status === 'blocked';
+  const col = blocked ? '--rg-blocked' : RING[t.status] || '--rg-todo';
+  const label = `${blocked ? 'Blocked at' : 'Step'} ${i + 1} of 5: ${STEPS[i][1]}`;
+  const live = t.waiting && activeRunFor(t.id);
+  return `<svg class="ring tring${live ? ' live' : ''}" width="18" height="18" viewBox="0 0 18 18" role="img" aria-label="${label}"><title>${label}</title><circle class="trk" cx="9" cy="9" r="7" stroke-width="3" style="stroke:var(--line)"></circle>${i || blocked ? `<circle cx="9" cy="9" r="7" stroke="var(${col})" stroke-width="3" pathLength="100" stroke-dasharray="${Math.max(i, 0.5) * 25} 100"></circle>` : ''}</svg>`;
+}
+function stepper(t) {
+  const i = stepOf(t);
+  const blocked = t.status === 'blocked';
+  return `<ol class="steps" aria-label="Progress">${STEPS.map(([k, label], n) => {
+    const cls = t.status === 'done' || n < i ? 'past' : n === i ? `now${blocked ? ' blocked' : ''}` : '';
+    const text = n === i && blocked ? `${label} · blocked` : n === i && t.waiting ? `${label} · ${activeRunFor(t.id) ? 'running' : 'queued'}` : label;
+    return `<li class="${cls}"${n === i ? ` aria-current="step" style="--sc:var(${blocked ? '--rg-blocked' : RING[k]})"` : ''}><i></i>${esc(text)}</li>`;
+  }).join('')}</ol>`;
+}
+/** The whole plan at a glance: status donut (tap an arc or a legend row to filter) and one ring per plan stage. */
+function renderOverview() {
+  const all = live();
+  if (!all.length) return '';
+  const done = all.filter((t) => t.status === 'done').length;
+  const pct = Math.round(done / all.length * 100);
+  const counts = statusCounts(all);
+  const picked = state.status && RING[state.status];
+  const mid = picked ? [counts.find(([k]) => k === state.status)[1], STATUS[state.status].label] : [`${pct}%`, `${done} of ${all.length} done`];
+  const legend = counts.map(([k, n]) => `<li><button type="button" class="${n ? '' : 'zero'}" data-status-pick="${k}" aria-pressed="${state.status === k}" style="--c:var(${RING[k]})"><i></i>${STATUS[k].label}<b>${n}</b></button></li>`).join('');
+  const waves = [...new Map(all.filter((t) => t.wave).sort((a, b) => a.wave - b.wave).map((t) => [t.wave, t.waveName])).entries()].map(([w, name]) => {
+    const inWave = all.filter((t) => t.wave === w);
+    const d = inWave.filter((t) => t.status === 'done').length;
+    const mine = inWave.filter(FOCUS.mine).length;
+    const active = inWave.filter((t) => t.waiting).length;
+    const p = Math.round(d / inWave.length * 100);
+    const note = mine ? ` · <em>${mine} for you</em>` : active ? ` · <u>${active} with agents</u>` : '';
+    return `<button type="button" class="wcard${d === inWave.length ? ' complete' : ''}" data-wave-pick="${w}" aria-pressed="${state.wave === w}" title="${esc(name)}: ${d} of ${inWave.length} done">
+      <span class="wring">${ring(ringParts(inWave), 42, 6)}<span>${p === 100 ? '✓' : p}</span></span>
+      <span class="wn">${w} · ${esc(name)}</span><span class="ws">${d}/${inWave.length} done${note}</span></button>`;
+  }).join('');
+  const waveName = state.wave ? all.find((t) => t.wave === state.wave)?.waveName : '';
+  const clear = picked || state.wave ? `<div class="ov-clear"><span>Showing ${[picked ? STATUS[state.status].label : '', state.wave ? `stage ${state.wave} · ${esc(waveName || '')}` : ''].filter(Boolean).join(' in ')}</span><button class="linkbtn" type="button" data-ov-clear>${ico('x')}Show everything</button></div>` : '';
+  return `<section class="overview" aria-label="Progress overview">
+    <div class="ov-status"><div class="donut${picked ? ' picked' : ''}" data-mid="${esc(mid[0])}|${esc(mid[1])}">${ring(ringParts(all), 148, 18, { pick: true })}<div class="mid"><b>${mid[0]}</b><span>${mid[1]}</span></div></div>
+      <ul class="legend">${legend}</ul></div>
+    ${waves ? `<div class="ov-waves">${waves}</div>` : ''}${clear}</section>`;
+}
 function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2800); }
 
 // Done tickets stay out of the way unless asked for: Show done, Status Done, the done counter, or a search.
-function hidingDone() { return state.hideDone && !state.q && state.focus !== 'done' && state.status !== 'done' && state.status !== 'archived'; }
+function hidingDone() { return state.hideDone && !state.q && !state.wave && state.focus !== 'done' && state.status !== 'done' && state.status !== 'archived'; }
 function visible({ withDone = false } = {}) {
   const q = state.q.toLowerCase();
   const hide = !withDone && hidingDone();
   const pool = state.status === 'archived' ? [...state.tickets.values()].filter((t) => t.archived) : live();
   return pool
-    .filter((t) => (!state.kind || t.kind === state.kind) && (!state.epic || t.epic === state.epic) && (!state.focus || FOCUS[state.focus](t))
+    .filter((t) => (!state.kind || t.kind === state.kind) && (!state.wave || t.wave === state.wave) && (!state.epic || t.epic === state.epic) && (!state.focus || FOCUS[state.focus](t))
       && (!state.status || state.status === 'archived' || t.status === state.status)
       && (!state.who || (state.who === 'none' ? !t.holder : t.holder === state.who))
       && !(hide && t.status === 'done')
@@ -706,7 +840,7 @@ function renderCounters() {
 
 function mitem(t, c) {
   return `<button class="mitem" data-id="${esc(t.id)}" style="--gc:var(${c})">
-    <div class="r1"><span><span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span></span>${pill(t.status)}</div>
+    <div class="r1"><span>${ticketRing(t)} <span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span></span>${pill(t.status)}</div>
     <div class="ttl">${esc(t.title)}</div>
     <div class="r3">${holder(t.holder)}<span>${esc(t.waveName || t.epic)}</span>${badges(t)}</div></button>`;
 }
@@ -714,14 +848,14 @@ function waveGroups(list) {
   const all = live();
   const withDone = visible({ withDone: true });
   const waves = [...new Map(all.filter((t) => t.wave).sort((a, b) => a.wave - b.wave).map((t) => [t.wave, t.waveName])).entries()];
-  return waves.map(([w, name]) => {
+  return waves.filter(([w]) => !state.wave || w === state.wave).map(([w, name]) => {
     const inWave = all.filter((t) => t.wave === w);
     const done = inWave.filter((t) => t.status === 'done').length;
     const open = state.openWaves.has(w);
     const rows = (open ? withDone : list).filter((t) => t.wave === w);
     const hiddenDone = hidingDone() && !open ? withDone.filter((t) => t.wave === w && t.status === 'done').length : 0;
     const ready = inWave.filter(isReady).length;
-    return { wave: w, title: `<span class="wn">${w}</span> ${esc(name)}`, rows, c: '--accent', progress: [done, inWave.length], hiddenDone, open, ready };
+    return { wave: w, title: `<span class="wn">${w}</span> ${esc(name)}`, rows, c: '--accent', progress: [done, inWave.length], parts: ringParts(inWave), hiddenDone, open, ready };
   });
 }
 function waveTools(g) {
@@ -748,7 +882,7 @@ function renderQueue() {
     const btns = !state.canWrite ? '' : run
       ? `<button class="linkbtn" type="button" data-qact="stop" data-run="${esc(run.id)}">${ico('stop')}Stop</button>`
       : `${i > firstFree ? `<button class="linkbtn" type="button" data-qact="run-next" data-tid="${esc(t.id)}">Run next</button>` : ''}<button class="linkbtn" type="button" data-qact="cancel" data-tid="${esc(t.id)}">${ico('x')}Cancel</button>`;
-    return `<li><button class="qmain" type="button" data-id="${esc(t.id)}"><span class="mono">${esc(t.id)}</span><span class="qttl">${esc(t.title)}</span></button>${holderTool(t)}${st}<span class="qbtns">${btns}</span></li>`;
+    return `<li><button class="qmain" type="button" data-id="${esc(t.id)}">${ticketRing(t)}<span class="mono">${esc(t.id)}</span><span class="qttl">${esc(t.title)}</span></button>${holderTool(t)}${st}<span class="qbtns">${btns}</span></li>`;
   }).join('');
   return `<section class="queue"><h2>Queue <small>${q.length}</small>${state.metaSeen && !pcOnline() ? '<span class="chip" style="color:var(--warn-text)">PC offline</span>' : ''}${tool}</h2><ol>${rows}</ol></section>`;
 }
@@ -761,7 +895,7 @@ function renderTable() {
     const { title, rows, c, progress } = g;
     const name = title;
     const tools = waveTools(g);
-    const bar = progress ? `<span class="wavebar">${progress[0]}/${progress[1]} done<span class="track"><span class="fill" style="width:${Math.round(progress[0] / progress[1] * 100)}%"></span></span></span>` : '';
+    const bar = progress ? `<span class="wavebar">${progress[0]}/${progress[1]} done · ${Math.round(progress[0] / progress[1] * 100)}%${ring(g.parts, 24, 5)}</span>` : '';
     if (!rows.length) {
       // A wave whose open work is all done folds to one line.
       return g.hiddenDone ? `<section class="group folded"><h2><span class="dot" style="background:var(${c})"></span>${name}${bar}${tools}</h2></section>` : '';
@@ -771,21 +905,21 @@ function renderTable() {
     return `<section class="group">${head}
       <div class="tablewrap" style="--gc:var(${c})"><table><thead><tr><th>Ticket</th><th>${state.group === 'plan' ? 'Epic' : 'Plan'}</th><th>Holder</th><th>Status</th><th>Depends on</th><th>Updated</th></tr></thead><tbody>
       ${rows.map((t) => `<tr class="row" tabindex="0" data-id="${esc(t.id)}">
-        <td class="title"><div class="t"><span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span><span>${esc(t.title)}</span>${badges(t)}</div></td>
+        <td class="title"><div class="t">${ticketRing(t)}<span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span><span>${esc(t.title)}</span>${badges(t)}</div></td>
         <td>${esc(state.group === 'plan' ? t.epic : (t.wave ? t.wave + ' · ' + t.waveName : t.epic))}</td><td>${t.waiting ? holderTool(t) : holder(t.holder)}</td>
         <td class="statuscell">${statusCell(t.archived ? 'archived' : t.status)}</td><td>${deps(t)}</td><td class="upd">${when(t.updatedAt)}</td></tr>`).join('')}
       </tbody></table></div></section>`;
   }).join('');
-  const filtered = state.focus || state.q || state.kind || state.epic || state.status || state.who;
+  const filtered = state.focus || state.q || state.kind || state.epic || state.status || state.who || state.wave;
   const queue = filtered ? '' : renderQueue();
   const hasRows = groups.some((g) => g.rows.length);
-  return queue + body + (hasRows ? '' : `<p class="empty">${filtered ? 'No tickets match. Clear the filters to see all tickets.' : 'No open tickets.'}</p>`);
+  return renderOverview() + queue + body + (hasRows ? '' : `<p class="empty">${filtered ? 'No tickets match. Clear the filters to see all tickets.' : 'No open tickets.'}</p>`);
 }
 
 function renderKanban() {
   const list = visible({ withDone: true });
   const jump = narrow.matches ? `<nav class="jump" aria-label="Columns">${KANBAN_ORDER.map((s) => `<button data-jump="${s}" style="--cc:var(${STATUS[s].c})"><i></i>${STATUS[s].label} ${list.filter((t) => t.status === s).length}</button>`).join('')}</nav>` : '';
-  return `${jump}<div class="kanban">${KANBAN_ORDER.map((s) => {
+  return `${renderOverview()}${jump}<div class="kanban">${KANBAN_ORDER.map((s) => {
     const cards = list.filter((t) => t.status === s);
     return `<section class="col" data-status="${s}" style="--cc:var(${STATUS[s].c})"><header>${STATUS[s].label}<span>${cards.length}</span></header>
       <div class="cards" id="col-${s}">${cards.map((t) => `<button class="card" draggable="${!narrow.matches}" data-id="${esc(t.id)}">
@@ -876,7 +1010,7 @@ function panelSignature(t) {
     prev: t.prev, pick: preferredRunner(), canWrite: state.canWrite,
     log: entries.length, last: last && [last.at, last.kind, last.text],
     run: run && [run.id, run.status, run.model, run.branch, run.endedAt, run.exitCode, run.role],
-    online: pcOnline(), busy: state.runnerStatus?.busyWith || null,
+    online: pcOnline(), busy: state.runnerStatus?.busyWith || null, running: !!activeRunFor(t.id),
   });
 }
 function renderPanel() {
@@ -917,6 +1051,7 @@ function renderPanel() {
         ${t.mergedAt ? '<span class="chip ready">Merged to main</span>' : ''}
         ${t.qaHandoffAt ? `<span class="chip tool">Handed to QA ${esc(when(t.qaHandoffAt))}</span>` : ''}
         ${t.mergeError ? `<span class="chip" style="color:var(--warn-text)">Merge failed</span>` : ''}</div>
+      ${t.archived ? '' : stepper(t)}
     </div>
     <div class="pb">
       ${runLiveHtml(t)}
@@ -1406,7 +1541,7 @@ $('#tools-toggle').onclick = () => {
   $('#tools-toggle').setAttribute('aria-expanded', String(open));
 };
 function renderToolsCount() {
-  const n = [state.q, state.kind, state.epic, state.status, state.who].filter(Boolean).length + (state.group === 'status' ? 1 : 0) + (state.hideDone ? 0 : 1);
+  const n = [state.q, state.kind, state.epic, state.status, state.who, state.wave].filter(Boolean).length + (state.group === 'status' ? 1 : 0) + (state.hideDone ? 0 : 1);
   const b = $('#tools-count'); b.hidden = !n; b.textContent = n;
 }
 $('#counters').addEventListener('click', (e) => {
@@ -1450,6 +1585,11 @@ $('#view').addEventListener('click', (e) => {
     if (actBtn.dataset.act === 'reopen-decision') return reopenDecision(id);
     return;
   }
+  const sp = e.target.closest('[data-status-pick], [data-seg]');
+  if (sp) { const k = sp.dataset.statusPick || sp.dataset.seg; state.status = state.status === k ? '' : k; $('#status').value = state.status; render(); renderToolsCount(); return; }
+  const wp = e.target.closest('[data-wave-pick]');
+  if (wp) { const w = Number(wp.dataset.wavePick); state.wave = state.wave === w ? 0 : w; render(); renderToolsCount(); return; }
+  if (e.target.closest('[data-ov-clear]')) { state.status = ''; state.wave = 0; $('#status').value = ''; render(); renderToolsCount(); return; }
   const wt = e.target.closest('[data-wave-toggle]');
   if (wt) { const w = Number(wt.dataset.waveToggle); state.openWaves.has(w) ? state.openWaves.delete(w) : state.openWaves.add(w); render(); return; }
   const qr = e.target.closest('[data-queue-ready]');
@@ -1472,6 +1612,17 @@ $('#view').addEventListener('click', (e) => {
   if (j) { document.getElementById('col-' + j.dataset.jump)?.closest('.col').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', inline: 'center', block: 'nearest' }); return; }
   const el = e.target.closest('[data-id]'); if (el) openPanel(el.dataset.id);
 });
+// Hovering an arc or a legend row shows that status in the middle of the donut and lights its pair.
+function hotStatus(k) {
+  const d = $('#view .donut'); if (!d) return;
+  d.querySelectorAll('.seg').forEach((s) => s.classList.toggle('hot', s.dataset.seg === k));
+  $('#view').querySelectorAll('.legend button').forEach((b) => b.classList.toggle('hot', b.dataset.statusPick === k));
+  const [num, label] = k ? [live().filter((t) => t.status === k).length, STATUS[k].label] : d.dataset.mid.split('|');
+  d.querySelector('.mid b').textContent = num; d.querySelector('.mid span').textContent = label;
+}
+const hotOf = (e) => e.target.closest?.('[data-seg], [data-status-pick]');
+$('#view').addEventListener('pointerover', (e) => { if (e.pointerType === 'touch') return; const el = hotOf(e); if (el) hotStatus(el.dataset.seg || el.dataset.statusPick); });
+$('#view').addEventListener('pointerout', (e) => { if (hotOf(e) && !e.relatedTarget?.closest?.('[data-seg], [data-status-pick]')) hotStatus(''); });
 $('#view').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const el = e.target.closest('tr[data-id]'); if (el) openPanel(el.dataset.id); } });
 $('#scrim').onclick = closePanel;
 function syncHash() {
