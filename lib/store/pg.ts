@@ -1,8 +1,7 @@
 import pg from 'pg';
 import {
   buildTicket, NewTicket, nextId,
-  Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket,
-} from './types';
+  Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket, RunStat } from './types';
 
 const { Pool } = pg;
 
@@ -261,6 +260,23 @@ export class PgStore implements Store {
   async readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>> {
     const light = await this.readLight();
     return { runs: light.runs, runnerStatus: light.runnerStatus };
+  }
+
+  async runStats(since: number): Promise<RunStat[]> {
+    // Only the fields the Insights tab shows: output lines stay in the database.
+    const r = await this.q<{ id: string; ticket_id: string; runner: string; role: string; status: string; started_at: string | null; ended_at: string | null; model: string | null }>(
+      `select id, ticket_id, body->>'runner' as runner, body->>'role' as role, body->>'status' as status,
+              body->>'startedAt' as started_at, body->>'endedAt' as ended_at, body->>'model' as model
+         from runs
+        where created_at > to_timestamp($1::double precision / 1000)
+        order by created_at desc
+        limit 3000`,
+      [since],
+    );
+    return r.rows.map((x) => ({
+      id: x.id, ticketId: x.ticket_id, runner: x.runner as RunStat['runner'], role: x.role as RunStat['role'], status: x.status as RunStat['status'],
+      startedAt: Number(x.started_at) || 0, endedAt: Number(x.ended_at) || undefined, model: x.model || undefined,
+    }));
   }
 
   async createTicket(input: NewTicket): Promise<Ticket> {

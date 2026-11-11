@@ -13,6 +13,7 @@
   // After a create: forget the change signature so the next poll brings the new ticket.
   window.boardRefresh = () => { last = ''; return poll(); };
   window.boardCreateTicket = (input) => api('/api/tickets', { method: 'POST', body: JSON.stringify(input) });
+  window.boardStats = () => api('/api/stats');
   window.boardStopRun = (runId) => api(`/api/runs/${runId}`, { method: 'PATCH', body: JSON.stringify({ stopRequested: true }) });
   const snapOf = (map) => {
     const docs = Object.values(map || {}).map((d) => ({ id: d.id, exists: true, data: () => d, metadata: {} }));

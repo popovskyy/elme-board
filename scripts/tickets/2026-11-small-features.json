@@ -1,0 +1,58 @@
+{
+  "note": "New feature idea added on 11 Nov 2026: small, no change to prices, stock or ordering rules.",
+  "tickets": [
+    {
+      "key": "image-download",
+      "kind": "FE",
+      "epic": "5 PDP",
+      "deps": [
+        "FE-25"
+      ],
+      "title": "PDP: download product images (trade customers)",
+      "scope": "\"Download images\" under the gallery for logged-in trade customers: one click saves the product photos (full size, white background first) as a zip, or each image on its own on the phone. Retailers use them on their own sites and in quotes. Images come from Cloudinary through the Magento gallery (D8); nothing new is stored. Guests do not see the button. No change to prices, stock or ordering.",
+      "ref": "New feature, not on production. Gallery: FE-25. Images: https://www.elmeliving.com/fern-lush-boston-potted-50-x-50-x-55cm.html",
+      "qa": [
+        "Guests see no download button and the download URL refuses them",
+        "Zip holds every gallery image at full size, named SKU-1, SKU-2 …",
+        "Works on iOS Safari and Android Chrome",
+        "Button has a loading state and an error message when the download fails"
+      ]
+    },
+    {
+      "key": "spec-sheet",
+      "kind": "FE",
+      "epic": "5 PDP",
+      "deps": [
+        "FE-25",
+        "FE-29"
+      ],
+      "title": "PDP: print-ready spec sheet (no prices)",
+      "scope": "\"Print spec sheet\" on the product page: a print stylesheet that turns the page into one clean A4 sheet with the Elme logo, main image, name, SKU, description, specifications, dimensions and care instructions. No prices, no stock, no header, footer, chat or carousels, so a retailer can hand it to their own customer. The browser print dialog saves it as PDF; no PDF library and no backend.",
+      "ref": "New feature, not on production. Content: FE-25, FE-29.",
+      "qa": [
+        "Print preview is one A4 page for a typical product, two at most",
+        "No price, stock, navigation, chat button or recommendations on the sheet",
+        "Same sheet for guests and logged-in customers",
+        "Images and logo print sharp; text is black on white"
+      ]
+    },
+    {
+      "key": "copy-sku",
+      "kind": "FE",
+      "epic": "5 PDP",
+      "deps": [
+        "FE-19",
+        "FE-25"
+      ],
+      "title": "Copy SKU with one tap (PDP, card, cart, order view)",
+      "scope": "Trade customers retype SKUs into their own systems and into Quick Order. Make the SKU a small button wherever it is shown (product page, card, cart row, order view): a tap copies it and shows \"Copied\" for a moment. Text stays selectable; no layout change.",
+      "ref": "New feature, not on production. Card: FE-19, PDP: FE-25.",
+      "qa": [
+        "Tap or Enter copies the exact SKU, with no spaces around it",
+        "\"Copied\" is announced to screen readers and disappears on its own",
+        "Tapping the SKU on a card does not open the product page",
+        "Works for guests too"
+      ]
+    }
+  ]
+}

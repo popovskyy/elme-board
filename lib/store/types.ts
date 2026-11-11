@@ -82,6 +82,9 @@ export type Run = {
   version?: number;
 };
 
+/** A run without its output, for the Insights tab. */
+export type RunStat = Pick<Run, 'id' | 'ticketId' | 'runner' | 'role' | 'status' | 'startedAt' | 'endedAt' | 'model'>;
+
 export type RunnerStatus = { lastSeenAt: number; host: string; busyWith: string | null };
 
 export type Board = {
@@ -126,6 +129,8 @@ export interface Store {
   readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>>;
   /** New ticket from the board; the id is the next free number for its kind (FE-60, BE-01, …). */
   createTicket(input: NewTicket): Promise<Ticket>;
+  /** Runs started after `since` (ms), newest first, without output lines. */
+  runStats(since: number): Promise<RunStat[]>;
 }
 
 export type NewTicket = Pick<Ticket, 'title' | 'kind' | 'scope' | 'ref' | 'qa' | 'deps'> & {

@@ -38,6 +38,8 @@
   <symbol id="i-monitor" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16v11H4zM9 20h6M12 16v4"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7 7l10 10M17 7 7 17"/></symbol>
   <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.2 13.4 9 19 10.6 13.4 12.2 12 18l-1.4-5.8L5 10.6 10.6 9z"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-pencil" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
@@ -251,6 +253,34 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
   .wcard { transition: border-color 160ms ease, background-color 160ms ease, transform 140ms var(--ease-out); }
   .wcard:active { transform: scale(0.97); }
 }
+/* Insights */
+.ins-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 16px; }
+.ins-head h2 { margin: 0; font: 400 26px/1.2 var(--display); }
+.ins-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.ins-head .export-btn { margin-left: auto; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--tc, var(--line)); box-shadow: var(--shadow); padding: 14px 16px; min-width: 0; }
+.tile h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.tile .num { font: 400 40px/1.1 var(--display); font-variant-numeric: tabular-nums; margin: 4px 0 8px; }
+.tlist { list-style: none; margin: 0; padding: 0; display: grid; }
+.tlist li { border-top: 1px solid var(--line); }
+.tlist button { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; background: none; border: 0; padding: 7px 0; min-height: 36px; text-align: left; }
+.tlist button b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.tlist button:hover b { text-decoration: underline; }
+.tlist button small { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tlist .more-n { color: var(--muted); font-size: 13px; padding: 7px 0; }
+.ins-sec { margin-bottom: 24px; }
+.ins-sec h2 { font: 400 21px/1.2 var(--display); margin: 0 0 4px; }
+.ins-sec > p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.ins-sec table { min-width: 560px; }
+.ins-sec td.n, .ins-sec th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ins-sec td button { background: none; border: 0; padding: 0; text-align: left; display: flex; gap: 10px; align-items: center; min-height: 38px; width: 100%; }
+.ins-sec td button:hover span:last-child { text-decoration: underline; }
+.ins-sec td .ico { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+.rate { display: inline-flex; align-items: center; gap: 8px; }
+.rate i { display: block; width: 70px; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.rate i b { display: block; height: 100%; background: var(--rg-done); }
+
 /* Ticket panel: where the ticket is on its way to Done */
 .steps { list-style: none; margin: 2px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); }
 .steps li { position: relative; display: grid; justify-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.2; }
@@ -457,6 +487,9 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .ov-waves { margin-inline: -14px; padding-inline: 14px; scrollbar-width: none; }
   .wcard { min-height: 56px; }
   .steps li { font-size: 10px; }
+  .tiles { grid-template-columns: minmax(0, 1fr); }
+  .ins-head .export-btn { margin-left: 0; }
+  .ins-head .export-btn span { display: inline; }
   .nowrow .nowmain { flex-basis: 100%; }
   .nowrow .nowmain b { white-space: normal; }
   .queue .qmain { flex-basis: 100%; }
@@ -538,6 +571,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
       <button role="tab" id="tab-table" aria-selected="true" data-view="table"><svg class="ico" aria-hidden="true"><use href="#i-table"/></svg>Main table</button>
       <button role="tab" id="tab-kanban" aria-selected="false" data-view="kanban"><svg class="ico" aria-hidden="true"><use href="#i-kanban"/></svg>Kanban</button>
       <button role="tab" id="tab-decisions" aria-selected="false" data-view="decisions"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Decisions</button>
+      <button role="tab" id="tab-insights" aria-selected="false" data-view="insights"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg>Insights</button>
     </div>
     <div class="tools" id="tools">
     <div class="seg" id="grouping" role="group" aria-label="Group tickets by">
@@ -1040,6 +1074,89 @@ function renderDecisions() {
       <td>${esc(d.affects)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
+/* Insights: the week, the two tools, where agent time went, what holds the most work. */
+const DAY = 24 * 60 * 60 * 1000;
+const nowMs = () => Date.now() + (state.skew || 0);
+function fmtDur(ms) {
+  const m = Math.round(ms / 60000);
+  if (m < 1) return '<1 min';
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+}
+function fmtAge(ms) { const h = Math.floor(ms / 3600000); return h < 1 ? 'now' : h < 48 ? `${h} h` : `${Math.floor(h / 24)} d`; }
+const runMs = (r) => Math.max(0, (r.endedAt || (r.status === 'running' ? nowMs() : r.startedAt)) - r.startedAt);
+const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
+function loadStats(force = false) {
+  if (!window.boardStats || state.statsLoading || (!force && state.stats && Date.now() - state.stats.at < 5 * 60 * 1000)) return;
+  state.statsLoading = true;
+  window.boardStats().then((s) => { state.stats = { runs: s.runs || [], days: s.days || 90, at: Date.now() }; }, () => { state.stats = { runs: [], days: 90, at: Date.now(), failed: true }; })
+    .finally(() => { state.statsLoading = false; if (state.view === 'insights') render(); });
+}
+function weekFacts() {
+  const all = live(), now = nowMs();
+  const closed = all.filter((t) => t.status === 'done' && now - (t.updatedAt || 0) < 7 * DAY).sort((a, b) => b.updatedAt - a.updatedAt);
+  const mine = all.filter(FOCUS.mine).sort((a, b) => a.updatedAt - b.updatedAt);
+  const stuck = all.filter((t) => !['todo', 'done', 'review', 'blocked'].includes(t.status) && !activeRunFor(t.id) && now - (t.updatedAt || 0) > 3 * DAY).sort((a, b) => a.updatedAt - b.updatedAt);
+  return { all, now, closed, mine, stuck, done: all.filter((t) => t.status === 'done').length, working: all.filter((t) => t.waiting) };
+}
+function toolFacts(runs) {
+  return ['claude', 'cursor'].map((tool) => {
+    const mineRuns = runs.filter((r) => r.runner === tool);
+    const ended = mineRuns.filter((r) => r.status !== 'running' && r.status !== 'queued');
+    const n = (s) => ended.filter((r) => r.status === s).length;
+    return { tool, runs: mineRuns.length, ended: ended.length, done: n('done'), failed: n('failed'), stopped: n('stopped'), median: median(ended.map(runMs)), total: mineRuns.reduce((a, r) => a + runMs(r), 0) };
+  });
+}
+function renderInsights() {
+  const f = weekFacts();
+  const row = (t, note) => `<li><button type="button" data-id="${esc(t.id)}">${ticketRing(t)}<span class="mono">${esc(t.id)}</span><b>${esc(t.title)}</b><small>${note}</small></button></li>`;
+  const tile = (title, list, c, note, empty) => `<section class="tile" style="--tc:var(${c})"><h3>${title}</h3><div class="num">${list.length}</div>
+    ${list.length ? `<ul class="tlist">${list.slice(0, 6).map((t) => row(t, note(t))).join('')}${list.length > 6 ? `<li class="more-n">and ${list.length - 6} more</li>` : ''}</ul>` : `<p class="empty">${empty}</p>`}</section>`;
+  const tiles = `<div class="tiles">
+    ${tile('Closed in the last 7 days', f.closed, '--rg-done', (t) => when(t.updatedAt).split(',')[0], 'Nothing closed this week.')}
+    ${tile('Waiting for you', f.mine, '--rg-blocked', (t) => `${fmtAge(f.now - t.updatedAt)} · ${t.status === 'blocked' ? 'question' : 'review'}`, 'Nothing waits for you.')}
+    ${tile('No movement for 3+ days', f.stuck, '--rg-progress', (t) => fmtAge(f.now - t.updatedAt), 'Nothing is stuck.')}</div>`;
+
+  let tools, costly = '';
+  if (!state.stats) tools = '<p class="empty">Loading run history…</p>';
+  else if (state.stats.failed) tools = '<p class="empty">Run history could not load. Open the tab again to retry.</p>';
+  else if (!state.stats.runs.length) tools = `<p class="empty">No agent runs in the last ${state.stats.days} days.</p>`;
+  else {
+    const rows = toolFacts(state.stats.runs).filter((x) => x.runs).map((x) => {
+      const pct = x.ended ? Math.round(x.done / x.ended * 100) : 0;
+      return `<tr><td>${ico(x.tool === 'cursor' ? 'cursor' : 'spark')} <strong>${x.tool === 'cursor' ? 'Cursor' : 'Claude'}</strong></td><td class="n">${x.runs}</td>
+        <td class="n"><span class="rate" title="${x.done} of ${x.ended} ended runs finished"><i><b style="width:${pct}%"></b></i>${pct}%</span></td>
+        <td class="n">${x.failed}</td><td class="n">${x.stopped}</td><td class="n">${fmtDur(x.median)}</td><td class="n">${fmtDur(x.total)}</td></tr>`;
+    }).join('');
+    tools = `<div class="tablewrap"><table><thead><tr><th>Tool</th><th class="n">Runs</th><th class="n">Finished</th><th class="n">Failed</th><th class="n">Stopped</th><th class="n">Median run</th><th class="n">Total time</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    const per = new Map();
+    for (const r of state.stats.runs) { const x = per.get(r.ticketId) || { runs: 0, qa: 0, ms: 0 }; x.runs++; x.ms += runMs(r); if (r.role === 'qa') x.qa++; per.set(r.ticketId, x); }
+    const top = [...per.entries()].filter(([id]) => state.tickets.has(id)).sort((a, b) => b[1].ms - a[1].ms).slice(0, 8);
+    costly = top.length ? `<section class="ins-sec"><h2>Where agent time went</h2><p>Tickets with the most agent time in the last ${state.stats.days} days. Many QA rounds mean the build came back more than once.</p>
+      <div class="tablewrap"><table><thead><tr><th>Ticket</th><th>Status</th><th class="n">Runs</th><th class="n">QA rounds</th><th class="n">Agent time</th></tr></thead><tbody>${top.map(([id, x]) => { const t = state.tickets.get(id); return `<tr><td><button type="button" data-id="${esc(id)}">${ticketRing(t)}<span class="mono">${esc(id)}</span><span>${esc(t.title)}</span></button></td><td class="statuscell">${statusCell(t.status)}</td><td class="n">${x.runs}</td><td class="n">${x.qa}</td><td class="n">${fmtDur(x.ms)}</td></tr>`; }).join('')}</tbody></table></div></section>` : '';
+  }
+  const holds = f.all.filter((t) => t.status !== 'done' && unlocksOf(t.id).length).sort((a, b) => unlocksOf(b.id).length - unlocksOf(a.id).length).slice(0, 6);
+  const holdsHtml = holds.length ? `<section class="ins-sec"><h2>Opens the most work</h2><p>Open tickets that other open tickets wait for. Finishing these first frees the most.</p>
+    <div class="tablewrap"><table><thead><tr><th>Ticket</th><th>Status</th><th class="n">Waiting on it</th><th>Tickets</th></tr></thead><tbody>${holds.map((t) => `<tr><td><button type="button" data-id="${esc(t.id)}">${ticketRing(t)}<span class="mono">${esc(t.id)}</span><span>${esc(t.title)}</span></button></td><td class="statuscell">${statusCell(t.status)}</td><td class="n">${unlocksOf(t.id).length}</td><td>${unlocksOf(t.id).map((d) => `<span class="dep">${esc(d)}</span>`).join('')}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+  return `<div class="ins-head"><h2>Insights</h2><p>${f.done} of ${f.all.length} done · ${Math.round(f.done / Math.max(1, f.all.length) * 100)}%</p>
+      <button class="export-btn" type="button" data-copy-report>${ico('copy')}<span>Copy weekly report</span></button></div>
+    ${tiles}
+    <section class="ins-sec"><h2>Claude and Cursor</h2><p>Agent runs of the last ${state.stats?.days || 90} days. Finished = the run ended on its own with a report; failed and stopped runs went back to you.</p>${tools}</section>
+    ${costly}${holdsHtml}`;
+}
+/** Plain text for a message to the client or the team. */
+function weeklyReport() {
+  const f = weekFacts();
+  const line = (t) => `- ${t.id} ${t.title}`;
+  const block = (title, list) => list.length ? [`${title} (${list.length}):`, ...list.map(line), ''] : [];
+  const day = new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(f.now));
+  const out = [`Elme Board, week to ${day}`, `Done: ${f.done} of ${f.all.length} (${Math.round(f.done / Math.max(1, f.all.length) * 100)}%)`, '',
+    ...block('Closed this week', f.closed), ...block('With agents now', f.working), ...block('Waiting for Roman', f.mine), ...block('No movement for 3+ days', f.stuck)];
+  if (state.stats?.runs?.length) {
+    const week = toolFacts(state.stats.runs.filter((r) => f.now - r.startedAt < 7 * DAY)).filter((x) => x.runs);
+    if (week.length) out.push(`Agent runs this week: ${week.map((x) => `${x.tool === 'cursor' ? 'Cursor' : 'Claude'} ${x.runs} (${x.done} finished, ${fmtDur(x.total)})`).join(', ')}`);
+  }
+  return out.join('\n').trim() + '\n';
+}
 function render() {
   renderCounters();
   $('#grouping').hidden = state.view !== 'table';
@@ -1048,7 +1165,7 @@ function render() {
   // On the phone the list sits under the full-screen ticket: rebuild it when the ticket closes, not under the finger.
   if (state.open && narrow.matches) { viewDirty = true; renderPanel(); return; }
   viewDirty = false;
-  const html = state.view === 'table' ? renderTable() : state.view === 'kanban' ? renderKanban() : renderDecisions();
+  const html = state.view === 'table' ? renderTable() : state.view === 'kanban' ? renderKanban() : state.view === 'insights' ? renderInsights() : renderDecisions();
   if (viewHtml !== html) {
     const y = window.scrollY;
     const kanbanX = v.querySelector('.kanban')?.scrollLeft || 0;
@@ -1376,6 +1493,17 @@ async function queueReady(btn) {
   } catch (e) { toast(e.message || 'Could not queue all; check the board.'); }
 }
 const NEW_TICKET = '__new__';
+/** Starting text for a new ticket. A template fills only the fields that are still empty. */
+const TEMPLATES = {
+  cms: { label: 'CMS page', kind: 'FE', scope: 'Page /<url> as on production: <blocks, top to bottom>. Built with Content Studio or Page Builder, so the content is editable in admin.\n\nNot in scope: writing the content.',
+    qa: ['Matches production at 390, 768, 1440 and 1920 px', 'Content is editable in admin without code', 'One H1; meta title and description are set', 'No console errors, no CSP violations'] },
+  block: { label: 'Page block (PDP, PLP, home)', kind: 'FE', scope: 'Block <name> on <page>: what it shows, where the data comes from, logged-out and logged-in state, empty state.',
+    qa: ['Hidden, or shows an empty state, when there is no data', 'Guests see no prices', 'Reachable with the keyboard, focus is visible', 'No layout shift while it loads', 'Matches production at 390 and 1440 px'] },
+  service: { label: 'Backend service', kind: 'BE', scope: 'Service <name>: input, output, which FE tickets call it, where the data comes from, what is cached and for how long.',
+    qa: ['Unit tests cover the rules and the edge cases', 'Guests get no customer data', 'An error from the data source ends in a clear message, not a broken page', 'Nothing per customer lands in a public cache'] },
+  bug: { label: 'Bug', kind: 'FE', scope: 'What happens: \nWhat should happen: \nWhere (URL, device, logged in or not): \nSteps to reproduce:\n1. ',
+    qa: ['The steps above no longer reproduce the bug', 'The neighbours still work (name what was checked)'] },
+};
 /** New ticket (t empty) or edit (t given). Edit also archives. */
 function openTicketForm(t = null) {
   const editing = !!t;
@@ -1393,6 +1521,7 @@ function openTicketForm(t = null) {
   p.innerHTML = `
     <div class="ph"><div class="row1"><h3>${editing ? `Edit <span class="mono">${esc(t.id)}</span>` : 'New ticket'}</h3><button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
     <div class="pb"><form class="form" id="new-form" novalidate>
+      ${editing ? '' : `<label>Template <small>fills the empty fields below</small><select id="nt-tpl"><option value="">Blank</option>${Object.entries(TEMPLATES).map(([k, x]) => `<option value="${k}">${x.label}</option>`).join('')}</select></label>`}
       <label>Title<input id="nt-title" required maxlength="160" value="${esc(v.title)}" placeholder="e.g. Custom select with search"></label>
       <div class="row2">
         <label>Kind<select id="nt-kind"${kindLocked ? ' disabled title="Kind changes only before work starts"' : ''}>${['FE', 'BE', 'UX'].map((k) => `<option${k === v.kind ? ' selected' : ''}>${k}</option>`).join('')}</select></label>
@@ -1416,6 +1545,14 @@ function openTicketForm(t = null) {
   p.scrollTop = 0;
   $('#close').onclick = closePanel;
   $('#nt-wave').onchange = () => { const e = epicOf(Number($('#nt-wave').value)); if (e) $('#nt-epic').value = e; };
+  if ($('#nt-tpl')) $('#nt-tpl').onchange = () => {
+    const tpl = TEMPLATES[$('#nt-tpl').value]; if (!tpl) return;
+    const kept = [];
+    $('#nt-kind').value = tpl.kind;
+    if ($('#nt-scope').value.trim()) kept.push('Scope'); else $('#nt-scope').value = tpl.scope;
+    if ($('#nt-qa').value.trim()) kept.push('QA checks'); else $('#nt-qa').value = tpl.qa.join('\n');
+    if (kept.length) toast(`${kept.join(' and ')} kept: already filled in`);
+  };
   $('#nt-title').focus();
   const read = () => {
     const w = Number($('#nt-wave').value);
@@ -1601,6 +1738,7 @@ document.addEventListener('drop', async (e) => {
 /* Events */
 document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
   state.view = b.dataset.view;
+  if (state.view === 'insights') loadStats();
   document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
   try { localStorage.setItem('elme-board-view', state.view); } catch {}
   render();
@@ -1670,6 +1808,8 @@ $('#view').addEventListener('click', (e) => {
   if (sp) { const k = sp.dataset.statusPick || sp.dataset.seg; state.status = state.status === k ? '' : k; $('#status').value = state.status; savePick(); render(); renderToolsCount(); return; }
   const wp = e.target.closest('[data-wave-pick]');
   if (wp) { const w = Number(wp.dataset.wavePick); state.wave = state.wave === w ? 0 : w; savePick(); render(); renderToolsCount(); return; }
+  const cr = e.target.closest('[data-copy-report]');
+  if (cr) { const text = weeklyReport(); (navigator.clipboard?.writeText(text) || Promise.reject()).then(() => toast('Weekly report copied'), () => { download('elme-weekly-report.txt', text); }); return; }
   if (e.target.closest('[data-ov-toggle]')) { state.ovMini = !state.ovMini; try { localStorage.setItem('elme-board-overview', state.ovMini ? 'mini' : 'full'); } catch {} render(); return; }
   if (e.target.closest('[data-ov-clear]')) { state.status = ''; state.wave = 0; $('#status').value = ''; savePick(); render(); renderToolsCount(); return; }
   const wt = e.target.closest('[data-wave-toggle]');
@@ -1720,7 +1860,7 @@ document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
   if (e.key === '/' && !state.open) { e.preventDefault(); $('#search').focus(); return; }
   if (e.key !== 'j' && e.key !== 'k') return;
-  if (state.view === 'decisions' || String(state.open || '').startsWith(NEW_TICKET)) return;
+  if (state.view === 'decisions' || state.view === 'insights' || String(state.open || '').startsWith(NEW_TICKET)) return;
   const ids = [...document.querySelectorAll('#view [data-id]:not(.qmain):not(.nowmain)')].map((el) => el.dataset.id);
   if (!ids.length) return;
   const at = ids.indexOf(state.open);
