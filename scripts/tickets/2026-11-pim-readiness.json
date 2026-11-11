@@ -1,0 +1,21 @@
+{
+  "note": "Added on 11 Nov 2026 after checking the Elme modules against the PIM plan.",
+  "tickets": [
+    {
+      "key": "pim-ready",
+      "kind": "BE",
+      "epic": "10 Cross-cutting",
+      "deps": [],
+      "title": "PIM readiness: stock, MOQ and badges behind provider interfaces",
+      "scope": "The backend plan (elme-product-data skill): no stock is stored in Magento (live from the Shipment Service), MOQ and promo prices come from the data warehouse, product fields from the PIM. Prices already sit behind `CustomerPriceProviderInterface`; do the same for the rest, with no change in behaviour today.\n\n- Stock: one `StockProviderInterface` (label level, salable qty, available yes/no, for one SKU and for many at once). Default implementation reads Magento inventory as now. Move the four direct reads onto it: `Elme\\Theme\\ViewModel\\ProductTile`, `Elme\\Theme\\ViewModel\\Lookbook`, `Elme\\QtyRules\\Model\\QtyRules`, `Elme\\QuickOrder\\Model\\CartLines`.\n- MOQ: one `QtyRulesProviderInterface` (minimum, step, maximum per SKU). Default implementation reads the Magento stock item as `QtyRules::fromStockItem` does now.\n- Badges: Sale and New in `ProductTile` read `special_price` and `news_from_date` directly; put them behind one method per badge, so Sale can follow the promo price and New the launch date later.\n- `bestsellers` sort attribute (patch `ConfigurePlpToolbar`): write in the ticket who fills it once the PIM owns product data, or mark it as Magento-owned.\n- Grep the Elme modules and theme for any other direct read of Magento inventory or of an old attribute listed as Drop / Not PIM in `references/m2-attribute-map.csv`, and list what you find.\n\nDo not build a client for the PIM, the data warehouse or the Shipment Service here.",
+      "ref": "`.claude/skills/elme-product-data/SKILL.md` (systems, rules 1-8); `app/code/Elme/LoginOnly/Api/CustomerPriceProviderInterface.php` as the pattern; `app/code/Elme/QtyRules`, `app/code/Elme/QuickOrder/Model/CartLines.php`, `app/code/Elme/Theme/ViewModel/ProductTile.php`, `Lookbook.php`",
+      "qa": [
+        "No class outside the two default implementations injects a Magento inventory interface (grep is clean)",
+        "Card stock label, Shop the Looks, cart availability and MOQ messages behave exactly as before",
+        "Swapping the stock provider in di.xml for a stub changes every one of the four places",
+        "Unit tests cover both default implementations and the many-SKUs call",
+        "The ticket log lists every other direct read found, or says none"
+      ]
+    }
+  ]
+}
