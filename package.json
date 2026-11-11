@@ -13,6 +13,7 @@
     "seed": "node scripts/seed.mjs",
     "runner": "node runner/runner.mjs",
     "board": "node cli/board.mjs",
+    "import-tickets": "node scripts/import-tickets.mjs",
     "test": "node --test lib/logic.test.mjs",
     "typecheck": "tsc --noEmit"
   },

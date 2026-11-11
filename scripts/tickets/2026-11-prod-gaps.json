@@ -1,0 +1,276 @@
+{
+  "note": "Added after the production gap review of 11 Nov 2026: on elmeliving.com, missing from the roadmap.",
+  "tickets": [
+    {
+      "key": "families",
+      "kind": "BE",
+      "epic": "5 PDP",
+      "deps": [],
+      "title": "Product families: simple products linked by attributes (replaces configurables)",
+      "scope": "The new store has no configurable products: every variant is a simple product, and siblings are found by shared attributes. Build one service that, for a product, returns its family and the axes it varies by: configuration (sofa modules and seaters), fabric / colour (today `colour_super_sku`), size, chaise side, comfort. Each sibling: name of the option, URL, swatch image, Quick Ship or Made To Order, lead time. Used by the PDP pickers, the PLP card (\"N colours available\") and structured data. Attribute names come from the PIM plan (`elme-product-data`). FE-28 was written for configurables; rewrite its scope to read from this service.",
+      "ref": "Production https://www.elmeliving.com/riley-apt-muse-flax-chaise-left-arm-facing-sofa-module.html (Configuration, Select Color). Old code: `Overdose_ConfigurableByAttribute`, `Bart_ConfigurableByAttribute`; search m2-bart-group for `family-configurator` and `swa__`.",
+      "qa": [
+        "A product with no siblings returns an empty family, and the page shows no pickers",
+        "Siblings come back in a fixed order with name, URL and swatch image",
+        "Disabled or not visible siblings are left out",
+        "No configurable product is needed for any picker to work",
+        "Unit tests cover the grouping by each attribute"
+      ]
+    },
+    {
+      "key": "family-picker",
+      "kind": "FE",
+      "epic": "5 PDP",
+      "deps": [
+        "FE-25",
+        "@families"
+      ],
+      "title": "PDP: sofa family configurator (Configuration picker + See all configurations)",
+      "scope": "On modular sofa pages: a \"Configuration:\" row with the current module named and a slider of sibling configurations (image + name; 21 on Riley Apt: modules, armchair, ottoman, 2 to 6 seaters), previous / next buttons, and \"See all configurations\" that opens a dialog with the full grid (\"Select a configuration below\", current one marked). Picking one opens that product page. Data from the product families service.",
+      "ref": "Production https://www.elmeliving.com/riley-apt-muse-flax-chaise-left-arm-facing-sofa-module.html. Old markup: classes `family-configurator`, `family-popup`, `config-item` in theme `Bart/el`.",
+      "qa": [
+        "Current configuration is marked in the row and in the dialog",
+        "Slider works with swipe on the phone and with the keyboard on desktop",
+        "Dialog closes with Esc and the close button, focus returns to \"See all configurations\"",
+        "A product without a family shows no Configuration row",
+        "Guests see no prices in the dialog"
+      ]
+    },
+    {
+      "key": "mto-swatches",
+      "kind": "FE",
+      "epic": "5 PDP",
+      "deps": [
+        "FE-25",
+        "@families"
+      ],
+      "title": "PDP: fabric swatches with Quick Ship / Made To Order groups and the MTO swatch modal",
+      "scope": "\"Select Color:\" block on sofa pages: the current fabric named, swatches (image + name; 31 on Riley Apt) in two groups, Quick Ship and \"Made To Order: With you in 14 weeks\", with an info tooltip whose text comes from a CMS block. A Quick Ship swatch opens the sibling product. A Made To Order swatch opens a modal first (large fabric image, name, lead time, confirm) and then the sibling product. Port the modal as it works on production for a logged-in trade customer.",
+      "ref": "Production https://www.elmeliving.com/riley-apt-muse-flax-chaise-left-arm-facing-sofa-module.html. Old markup: classes `swa__group--mto`, `swa__item--show-popup`, `swatches_data` in theme `Bart/el`.",
+      "qa": [
+        "Current fabric is marked and named",
+        "Quick Ship and Made To Order groups each show only their fabrics; an empty group is hidden",
+        "MTO swatch opens the modal; confirm goes to that product, Esc closes it",
+        "Lead time text and tooltip come from admin, not from the template",
+        "Swatches wrap without horizontal scroll at 390 px"
+      ]
+    },
+    {
+      "key": "mto-plp",
+      "kind": "FE",
+      "epic": "4 PLP & search",
+      "deps": [
+        "FE-19",
+        "FE-20",
+        "@families"
+      ],
+      "title": "Made to Order sofas category: MTO label, colour count on the card, State selector",
+      "scope": "/made-to-order-sofas.html: the card shows \"Made To Order\" where other cards show stock, and \"N colours available\" when the product has fabric siblings. The toolbar has a State selector (Automatic, NSW, VIC, QLD, SA, WA, TAS, NT, ACT) with Reset. Find in the old code what State changes (stock, lead time or freight) and port it; if the new stock source does not need it, record that in the ticket and leave it out.",
+      "ref": "Production https://www.elmeliving.com/made-to-order-sofas.html",
+      "qa": [
+        "MTO products show \"Made To Order\", never \"In Stock\" or \"Low Stock\"",
+        "Colour count matches the number of fabric siblings",
+        "State choice is kept while browsing and Reset clears it",
+        "Guests see \"Sign in to see pricing\" on every card"
+      ]
+    },
+    {
+      "key": "plp-list",
+      "kind": "FE",
+      "epic": "4 PLP & search",
+      "deps": [
+        "FE-19",
+        "FE-20"
+      ],
+      "title": "PLP: Grid / List view switch",
+      "scope": "\"View as: Grid | List\" in the category and search toolbar, as on production. List view: one product per row with image, name, SKU, price or \"Sign in to see pricing\", stock label, and for trade customers qty stepper + Add to cart. The choice is kept for the session.",
+      "ref": "Production https://www.elmeliving.com/made-to-order-sofas.html toolbar",
+      "qa": [
+        "Switching the view keeps the scroll position and the current page",
+        "Choice survives paging and filtering",
+        "List row has everything the card has",
+        "Works at 390 px without horizontal scroll"
+      ]
+    },
+    {
+      "key": "pdp-blocks",
+      "kind": "FE",
+      "epic": "5 PDP",
+      "deps": [
+        "FE-25",
+        "FE-29",
+        "FE-30"
+      ],
+      "title": "PDP: Shop the Range, Similar Products, Complete the look, View Dimensions",
+      "scope": "Blocks seen on production that FE-29 and FE-30 do not name: \"Shop the Range\" and \"Similar Products\" tabs, \"Complete the look\" (the product plus its matching items), and \"View Dimensions\" in the Dimensions section (opens the dimensions drawing). Check each against FE-30 first; build only what FE-30 does not already cover. The source of the product lists depends on D1.",
+      "ref": "Production https://www.elmeliving.com/fern-lush-boston-potted-50-x-50-x-55cm.html and https://www.elmeliving.com/riley-apt-muse-flax-chaise-left-arm-facing-sofa-module.html",
+      "qa": [
+        "Each block is hidden when it has no products",
+        "Cards are the shared card (FE-19)",
+        "View Dimensions opens the drawing and closes with Esc",
+        "No block shifts the layout while it loads"
+      ]
+    },
+    {
+      "key": "collab",
+      "kind": "FE",
+      "epic": "9 CMS",
+      "deps": [
+        "FE-19",
+        "FE-49"
+      ],
+      "title": "Collaboration landing page with a \"Shop the look\" product grid",
+      "scope": "Page like /elme-living-three-birds-maison-soleil: banner, intro text, then a \"Shop the look\" grid of chosen products on the shared card. Build it as a reusable Content Studio layout so the next collaboration needs no code.",
+      "ref": "Production https://www.elmeliving.com/elme-living-three-birds-maison-soleil",
+      "qa": [
+        "Products are picked in admin by SKU",
+        "Guests see \"Sign in to see pricing\"; no Add to Compare",
+        "Page matches production at 390, 768 and 1440 px"
+      ]
+    },
+    {
+      "key": "appointment",
+      "kind": "FE",
+      "epic": "9 CMS",
+      "deps": [
+        "FE-51"
+      ],
+      "title": "Book a showroom appointment page",
+      "scope": "/book-appointment (\"Showroom - Book an Appointment\"). On production the form is loaded by a script; find which service it is, then embed it or rebuild the form, and link the page from the showroom locator.",
+      "ref": "Production https://www.elmeliving.com/book-appointment",
+      "qa": [
+        "Form submits and the customer sees a confirmation",
+        "The embed is allowed in CSP and does not block rendering",
+        "Linked from the showroom pages"
+      ]
+    },
+    {
+      "key": "outlet-signup",
+      "kind": "FE",
+      "epic": "9 CMS",
+      "deps": [
+        "FE-11"
+      ],
+      "title": "Elme Outlet signup page",
+      "scope": "/elme-outlet-signup: signup form for outlet news. On production the form is loaded by a script (likely Klaviyo, see D7); use the same list. Link it from the Outlet & clearance store page.",
+      "ref": "Production https://www.elmeliving.com/elme-outlet-signup",
+      "qa": [
+        "Signup reaches the right Klaviyo list",
+        "Success and error states are shown",
+        "Linked from /outlet-and-clearance-store"
+      ]
+    },
+    {
+      "key": "special-offers",
+      "kind": "FE",
+      "epic": "9 CMS",
+      "deps": [
+        "FE-50"
+      ],
+      "title": "Special Offers Catalogue page (login only)",
+      "scope": "/virtual-special-offers-catalogue: guests see \"Sign in to see our brand new Special Offers Catalogue!\", trade customers see the catalogue embed. Same template as Virtual Catalogues (FE-50).",
+      "ref": "Production https://www.elmeliving.com/virtual-special-offers-catalogue",
+      "qa": [
+        "Guest sees the sign-in message and returns to the page after login",
+        "Logged-in customer sees the catalogue",
+        "Catalogue link is editable in admin"
+      ]
+    },
+    {
+      "key": "trade-terms",
+      "kind": "FE",
+      "epic": "9 CMS",
+      "deps": [
+        "FE-45"
+      ],
+      "title": "Trade Terms & Conditions page",
+      "scope": "/terms-conditions-of-trade on the help page template (FE-45), added to the help side menu and linked from the registration form and checkout terms where production links it.",
+      "ref": "Production https://www.elmeliving.com/terms-conditions-of-trade",
+      "qa": [
+        "Page uses the help template with the side menu",
+        "Registration and checkout link to it"
+      ]
+    },
+    {
+      "key": "page-503",
+      "kind": "FE",
+      "epic": "9 CMS",
+      "deps": [
+        "FE-52"
+      ],
+      "title": "503 / maintenance page",
+      "scope": "Styled \"Service Unavailable\" page for maintenance mode and for errors, as /service-unavailable on production. It must render without the database and without the theme assets pipeline (inline CSS, logo, contact phone and email).",
+      "ref": "Production https://www.elmeliving.com/service-unavailable",
+      "qa": [
+        "Shown in maintenance mode with HTTP 503 and Retry-After",
+        "Renders with the database stopped",
+        "Readable at 390 px"
+      ]
+    },
+    {
+      "key": "seo-launch",
+      "kind": "BE",
+      "epic": "10 Cross-cutting",
+      "deps": [
+        "FE-55"
+      ],
+      "title": "Launch SEO: XML sitemap, robots.txt, 301 redirects from the old URLs",
+      "scope": "Production sitemap lists 20,214 URLs. Generate the new XML sitemap (products, categories, CMS) on a schedule; robots.txt with the production rules that still apply; a redirect map so every old indexed URL answers 301 to its new page (products and categories whose URL key changes, removed CMS pages, old /blog/* URLs that are still in the sitemap but answer 404, `catalog/product/view/id/*`). Check the map with a script against the old sitemap before launch.",
+      "ref": "https://www.elmeliving.com/robots.txt, https://www.elmeliving.com/media/el_sitemap.xml",
+      "qa": [
+        "Every URL of the old sitemap answers 200 or one 301 to a 200 page",
+        "No redirect chains or loops",
+        "Sitemap holds only indexable, canonical URLs",
+        "robots.txt blocks account, cart, checkout and search result pages"
+      ]
+    },
+    {
+      "key": "favicon",
+      "kind": "FE",
+      "epic": "0 Foundation",
+      "deps": [
+        "FE-01"
+      ],
+      "title": "Favicon and app icons",
+      "scope": "Favicon (ico + svg), apple-touch-icon, web manifest icons and theme colour for the Elme theme; admin favicon left as is.",
+      "ref": "Production https://www.elmeliving.com/ head tags",
+      "qa": [
+        "Icon shows in browser tabs and bookmarks",
+        "Add to Home Screen on iOS and Android shows the Elme icon",
+        "No 404 for icon requests"
+      ]
+    },
+    {
+      "key": "scripts-2",
+      "kind": "FE",
+      "epic": "10 Cross-cutting",
+      "deps": [
+        "FE-54"
+      ],
+      "title": "Third-party scripts, round 2: Trustpilot, Videowise, New Relic",
+      "scope": "Production also loads Trustpilot (review invites), Videowise (video) and New Relic (browser monitoring); FE-54 covers only Zendesk, Klaviyo, GTM / GA4 and Triple Whale. Ask Roman which stay. For each one kept: load after the page is interactive, allow it in CSP, keep it inside the performance budget (UX-09).",
+      "ref": "Production https://www.elmeliving.com/ (script hosts: invitejs.trustpilot.com, assets.videowise.com, js-agent.newrelic.com)",
+      "qa": [
+        "Decision per script is written in the ticket",
+        "Kept scripts raise no CSP violations",
+        "Lighthouse performance does not drop below the UX-09 budget"
+      ]
+    },
+    {
+      "key": "emails",
+      "kind": "FE",
+      "epic": "10 Cross-cutting",
+      "deps": [
+        "FE-01"
+      ],
+      "title": "Transactional email templates in the Elme style",
+      "scope": "The roadmap left emails out of scope and no ticket covers them. Header, footer and styles for the emails a trade customer gets: account application received / approved, password reset, order confirmation, shipment, invoice, contact form copy. Colours and fonts from the design tokens; prices ex. GST as in the store.",
+      "ref": "Old templates: `Bart/el/*/email`, modules `ElmeLiving_*` in m2-bart-group",
+      "qa": [
+        "Each listed email renders in Gmail, Outlook and Apple Mail",
+        "Logo, links and contact details are the Elme ones",
+        "Order email shows prices ex. GST and the same totals as the checkout"
+      ]
+    }
+  ]
+}
