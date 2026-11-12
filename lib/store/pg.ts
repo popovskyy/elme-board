@@ -1,7 +1,7 @@
 import pg from 'pg';
 import {
   buildTicket, NewTicket, nextId,
-  Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket, RunStat } from './types';
+  Board, ConflictError, Decision, LogDoc, LogEntry, NotFoundError, Run, RunnerStatus, Store, Ticket, RunStat } from './types';
 
 const { Pool } = pg;
 
@@ -277,6 +277,20 @@ export class PgStore implements Store {
       id: x.id, ticketId: x.ticket_id, runner: x.runner as RunStat['runner'], role: x.role as RunStat['role'], status: x.status as RunStat['status'],
       startedAt: Number(x.started_at) || 0, endedAt: Number(x.ended_at) || undefined, model: x.model || undefined,
     }));
+  }
+
+  async logsBetween(from: number, to: number): Promise<Record<string, LogEntry[]>> {
+    // Only that day's entries, with long texts (QA reports, SEO plans) cut in the database:
+    // the daily update reads first lines, and whole logs would burn Neon transfer.
+    const r = await this.q<{ id: string; entries: LogEntry[] }>(
+      `select l.ticket_id as id,
+              jsonb_agg(jsonb_set(e, '{text}', to_jsonb(left(coalesce(e->>'text', ''), 700))) order by (e->>'at')::bigint) as entries
+         from ticket_log l, jsonb_array_elements(l.entries) e
+        where (e->>'at')::bigint >= $1 and (e->>'at')::bigint < $2
+        group by l.ticket_id`, [from, to]);
+    const out: Record<string, LogEntry[]> = {};
+    for (const row of r.rows) out[row.id] = row.entries;
+    return out;
   }
 
   async createTicket(input: NewTicket): Promise<Ticket> {

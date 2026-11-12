@@ -10,6 +10,7 @@
 //   board block FE-02 --question "Which menu source, D3?"
 //   board decide D3 --chosen "Snowdog Menu (native Hyvä)"
 //   board log FE-02 --who fe --kind note --text "…"
+//   board digest [--date 2026-11-11] [--lang uk|en] [--details]     (daily update; no date = yesterday)
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { assign, block, handToQa, qaPassed, qaFailed, ideasDone, ideasRestore, seoDone } from '../lib/logic.mjs';
@@ -112,10 +113,15 @@ async function main() {
       });
       return print(next);
     }
+    case 'digest': {
+      const date = opt('date') ?? id;
+      const d = await api(`/api/digest${date ? `?date=${date}` : ''}`);
+      return print(d.text[opt('lang') === 'en' ? 'en' : 'uk'][argv.includes('--details') ? 'full' : 'short']);
+    }
     case 'log':
       return appendLog(id, { who: opt('who') || 'watcher', kind: opt('kind') || 'note', text: need(opt('text'), '--text') });
     default:
-      console.log('Usage: board show|next|take|built|qa|ideas|ideas-restore|seo|block|decide|log|assign <ID> [options] (see header of cli/board.mjs)');
+      console.log('Usage: board show|next|take|built|qa|ideas|ideas-restore|seo|block|decide|log|assign|digest <ID> [options] (see header of cli/board.mjs)');
       process.exit(cmd ? 1 : 0);
   }
 }

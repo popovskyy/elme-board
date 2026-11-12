@@ -42,6 +42,7 @@
   <symbol id="i-copy" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-pencil" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 3.5h9l3.5 3.5v13.5H6zM9 10h6M9 13.5h6M9 17h4"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
   <symbol id="i-archive" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v4H4zM5 9v10h14V9M10 13h4"/></symbol>
   <symbol id="i-cursor" viewBox="0 0 24 24"><path fill="currentColor" d="M6 4.5 18.5 12 11.2 13.4 8.6 20z"/></symbol>
@@ -307,6 +308,12 @@ pre.stat { margin: 10px 0 6px; max-height: 260px; overflow: auto; padding: 10px;
 .export-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--fg); background: var(--surface); font-weight: 700; font-size: 14px; }
 .export-btn:hover { background: var(--surface-2); }
 .export-btn .ico { width: 16px; height: 16px; }
+.digest-nav { display: flex; gap: 8px; align-items: center; }
+.digest-nav input { flex: 1; min-width: 0; }
+.digest-nav .btn { padding: 8px 14px; min-height: 46px; flex: none; }
+.digest-bar { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; justify-content: space-between; }
+.form textarea.digest-text { min-height: 46vh; font: 14px/1.5 var(--mono); white-space: pre-wrap; }
+.digest-note { margin: 0; color: var(--muted); font-size: 13px; }
 .form fieldset { border: 1px solid var(--line); margin: 0; padding: 10px 14px 14px; display: grid; gap: 8px; }
 .form legend { font-weight: 700; font-size: 14px; padding: 0 4px; }
 .form label.radio, .form label.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; }
@@ -443,6 +450,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .titlerow { flex-wrap: wrap; row-gap: 10px; }
   .pc-status .txt { white-space: nowrap; }
   .new-ticket span, .export-btn span { display: none; }
+  .form textarea.digest-text { min-height: 40vh; }
   .export-btn { padding: 8px 12px; }
   .new-ticket { padding: 8px 12px; }
   .form .row2 { grid-template-columns: 1fr; }
@@ -561,6 +569,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
     <h1>Elme <span>Board</span></h1>
     <span class="sub">Hyvä port roadmap</span>
     <div class="pc-status" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">Checking PC…</span></div>
+    <button class="export-btn" id="digest" type="button" aria-label="Daily update"><svg class="ico" aria-hidden="true"><use href="#i-note"/></svg><span>Update</span></button>
     <button class="export-btn" id="export" type="button" aria-label="Export for QA"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg><span>Export</span></button>
     <button class="new-ticket" id="new-ticket" type="button" aria-label="New ticket"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>New ticket</span></button>
     <button class="tools-toggle" id="tools-toggle" type="button" aria-expanded="false" aria-controls="tools"><svg class="ico" aria-hidden="true"><use href="#i-plan"/></svg><span>Filters</span><b id="tools-count" hidden></b></button>
@@ -1690,6 +1699,83 @@ function openExport() {
   };
 }
 $('#export').onclick = openExport;
+
+/* Daily update: what moved on the board on one day, as a message to copy (Ukrainian or English). Opens on yesterday. */
+const DIGEST = `${NEW_TICKET}:digest`;
+const prefGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
+const prefSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* no permission or not https */ }
+  const ta = Object.assign(document.createElement('textarea'), { value: text });
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.append(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { /* nothing else to try */ }
+  ta.remove();
+  return ok;
+}
+function openDigest() {
+  closePanel();
+  state.open = DIGEST;
+  const p = $('#panel');
+  let lang = prefGet('digest-lang', 'uk') === 'en' ? 'en' : 'uk';
+  let details = prefGet('digest-details', '0') === '1';
+  let data = null, asked = 0;
+  p.innerHTML = `
+    <div class="ph"><div class="row1"><h3>Daily update</h3><button class="close" id="close" aria-label="Close">${ico('x')}</button></div></div>
+    <div class="pb"><form class="form" id="dg-form" novalidate>
+      <div class="digest-nav">
+        <button class="btn" id="dg-prev" type="button" aria-label="Previous day">${ico('back')}</button>
+        <input type="date" id="dg-date" aria-label="Day">
+        <button class="btn" id="dg-next" type="button" aria-label="Next day"><span style="display:inline-flex;transform:scaleX(-1)">${ico('back')}</span></button>
+      </div>
+      <div class="digest-bar">
+        <div class="seg" role="group" aria-label="Language">
+          <button type="button" data-lang="uk" aria-pressed="false">Українська</button><button type="button" data-lang="en" aria-pressed="false">English</button>
+        </div>
+        <label class="check"><input type="checkbox" id="dg-details"> One line of what was built <small>from the agent's report, in English</small></label>
+      </div>
+      <textarea class="digest-text" id="dg-text" aria-label="Update text" spellcheck="false" placeholder="Loading…"></textarea>
+      <p class="digest-note" id="dg-note" aria-live="polite"></p>
+    </form></div>
+    <div class="actions"><div class="btns"><button class="btn primary" id="dg-copy" type="button" disabled>${ico('copy')}Copy</button></div></div>`;
+  p.hidden = false; $('#scrim').hidden = false;
+  document.documentElement.classList.add('panel-open');
+  $('#close').onclick = closePanel;
+  $('#dg-details').checked = details;
+  const show = () => {
+    p.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    if (!data) return;
+    $('#dg-text').value = data.text[lang][details ? 'full' : 'short'];
+    $('#dg-date').value = data.date; $('#dg-date').max = data.today;
+    $('#dg-next').disabled = !data.next;
+    const c = data.counts;
+    $('#dg-note').textContent = `${c.shipped} done, ${c.review} in review, ${c.qa} in QA, ${c.progress} in progress, ${c.blocked} blocked · ${c.runs} agent runs. You can edit the text before copying.`;
+    $('#dg-copy').disabled = false;
+  };
+  const load = async (date) => {
+    const mine = ++asked;
+    $('#dg-copy').disabled = true; $('#dg-note').textContent = 'Loading…';
+    try {
+      const res = await fetch(`/api/digest${date ? `?date=${encodeURIComponent(date)}` : ''}`, { cache: 'no-store' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      if (mine !== asked || state.open !== DIGEST) return;
+      data = body; show();
+    } catch (e) {
+      if (mine !== asked || state.open !== DIGEST) return;
+      $('#dg-note').textContent = `Could not load the update: ${e.message}`;
+    }
+  };
+  p.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => { lang = b.dataset.lang; prefSet('digest-lang', lang); show(); }; });
+  $('#dg-details').onchange = (e) => { details = e.target.checked; prefSet('digest-details', details ? '1' : '0'); show(); };
+  $('#dg-prev').onclick = () => data && load(data.prev);
+  $('#dg-next').onclick = () => data?.next && load(data.next);
+  $('#dg-date').onchange = (e) => e.target.value && load(e.target.value);
+  $('#dg-copy').onclick = async () => { toast((await copyText($('#dg-text').value)) ? 'Copied' : 'Could not copy. Select the text and copy it by hand.'); };
+  show(); load('');
+}
+$('#digest').onclick = openDigest;
 
 
 function openPanel(id) {

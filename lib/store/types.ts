@@ -127,6 +127,8 @@ export interface Store {
   boardSig(): Promise<string>;
   /** Active and recently ended runs (lastLines trimmed) plus the runner heartbeat. */
   readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>>;
+  /** Log entries written in [from, to) (ms), per ticket, oldest first. For the daily update. */
+  logsBetween(from: number, to: number): Promise<Record<string, LogEntry[]>>;
   /** New ticket from the board; the id is the next free number for its kind (FE-60, BE-01, …). */
   createTicket(input: NewTicket): Promise<Ticket>;
   /** Runs started after `since` (ms), newest first, without output lines. */

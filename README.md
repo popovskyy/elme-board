@@ -18,35 +18,16 @@ npm run runner                # PC runner (see status below)
 
 ## Layout
 
-| Path | What | Status |
-| --- | --- | --- |
-| `public/board/index.html` | Board UI, ported unchanged from the claude.ai artifact | done |
-| `public/board/db-shim.js` | `window.claude.use('db')` surface backed by this API (polling every 5 s) | done |
-| `lib/logic.mjs` | Status rules, the one source; `npm run sync-logic` copies it to `public/board/logic.js` | done, tested |
-| `lib/store/file.ts` | JSON file store, atomic writes, versions, 409 on conflict | done |
-| `lib/store/pg.ts` + `db/schema.sql` | Postgres store for Vercel | **TODO** |
-| `app/api/*` | board, tickets, log, runner/next, runner/heartbeat, runs | done (file store) |
-| `cli/board.mjs` | Agent CLI: show, next, take, built, qa, block, log, assign | done |
-| `runner/runner.mjs` | PC runner: heartbeat, poll, preflight, branch, spawn, stream, Stop | **skeleton** |
+| Path | What |
+| --- | --- |
+| `public/board/index.html` | Board UI |
+| `public/board/db-shim.js` | `window.claude.use('db')` surface backed by this API |
+| `lib/logic.mjs` | Status rules, the one source; `npm run sync-logic` copies it to `public/board/logic.js` |
+| `lib/store/file.ts`, `lib/store/pg.ts` + `db/schema.sql` | JSON file store (local) and Postgres store (Vercel, Neon) |
+| `app/api/*` | board, tickets, log, decisions, runner/next, runner/merge, runner/heartbeat, runs |
+| `lib/digest.mjs` + `app/api/digest` | Daily update (the Update button): what moved on one Kyiv day, as copy-ready text in Ukrainian and English, built from the ticket logs |
+| `cli/board.mjs` | Agent CLI: show, next, take, built, qa, seo, ideas, block, decide, log, assign |
+| `runner/runner.mjs` | PC runner (user service `elme-board-runner`): heartbeat, poll, preflight, branch, spawn, stream, Stop, checkpoint, handoff, merge on Done |
+| `runner/prompt.mjs` | What goes from the ticket log into an agent prompt; usage-limit detection (tested) |
 
-## Next steps (for Cursor)
-
-1. **Postgres store.** Implement `PgStore` on `db/schema.sql` (Neon from the Vercel Marketplace), make `npm run seed` insert into it, add a store contract test that runs against both stores.
-2. **Page additions** in `public/board/index.html` (brief, section 1):
-   - "Run with: Claude | Cursor" in the ticket panel; it is saved as `runner` with the status change.
-   - Runner badges on cards and rows.
-   - "PC online / offline" in the header. The shim dispatches `board:meta` with `runnerStatus`.
-   - Live run view and a Stop button (`PATCH /api/runs/:id {stopRequested:true}`).
-3. **Runner TODOs:**
-   - Preflight: deps done, decisions decided, UX `extends` done.
-   - Prompt: add the log (bugs, answers, last QA report), the chosen decisions, and the Definition of Done for QA.
-   - **Permissions.** Ask Roman: a Claude allowlist in elme-hyva `.claude/settings.local.json`, or skip-permissions flags; the cursor-agent flags too.
-   - A systemd user service for the runner.
-4. **Agents:**
-   - Point `.claude/agents/*.md` and `.claude/commands/elme-board.md` at `cli/board.mjs`.
-   - Add `.cursor/rules/elme-board.mdc` to elme-hyva (git-ignored).
-5. **Deploy:**
-   - Vercel project from this folder.
-   - Env: `DATABASE_URL`, `BOARD_TOKEN`.
-   - Deployment Protection on. Put the automation bypass secret in the PC `.env` as `VERCEL_PROTECTION_BYPASS`.
-   - Set `BOARD_URL` on the PC to the deployment URL.
+After a change in `runner/`: `npm test`, then `systemctl --user restart elme-board-runner` while no ticket is running.

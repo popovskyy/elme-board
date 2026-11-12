@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { buildTicket, NewTicket, nextId, RunStat, Board, ConflictError, Decision, LogDoc, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
+import { buildTicket, NewTicket, nextId, RunStat, Board, ConflictError, Decision, LogDoc, LogEntry, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
 
 // Local JSON store: one file, atomic writes (tmp + rename), one write at a time.
 // Only for local development; Vercel needs the Postgres store.
@@ -122,6 +122,15 @@ export class FileStore implements Store {
       .filter((r) => (r.startedAt || 0) > since)
       .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))
       .map(({ id, ticketId, runner, role, status, startedAt, endedAt, model }) => ({ id, ticketId, runner, role, status, startedAt, endedAt, model }));
+  }
+
+  async logsBetween(from: number, to: number) {
+    const out: Record<string, LogEntry[]> = {};
+    for (const [id, doc] of Object.entries((await this.read()).log)) {
+      const hit = (doc.entries || []).filter((e) => e.at >= from && e.at < to);
+      if (hit.length) out[id] = hit;
+    }
+    return out;
   }
 
   createTicket(input: NewTicket) {
