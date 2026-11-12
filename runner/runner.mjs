@@ -7,6 +7,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync } from '
 import os from 'node:os';
 import path from 'node:path';
 import { queueCompare } from '../lib/logic.mjs';
+import { isLimit, formatLog } from './prompt.mjs';
 
 loadEnv(new URL('../.env.local', import.meta.url));
 loadEnv(new URL('../.env', import.meta.url));
@@ -286,7 +287,9 @@ async function startInner(t, runner) {
     const timedOut = !!busy?.timedOut;
     const stopped = signal === 'SIGTERM' || signal === 'SIGKILL';
     await api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines, endedAt: Date.now(), exitCode: code, status: stopped ? 'stopped' : code === 0 ? 'done' : 'failed' } }).catch(warn);
-    const latest = await api('/api/board').catch(() => null);
+    // The board can be unreachable for a moment (Wi-Fi, Vercel): without it the run would end with no
+    // checkpoint and no block, and the ticket would start again from a dirty tree.
+    const latest = await retry(() => api('/api/board'), 6, 10_000).catch((e) => { warn(`board unreachable after ${t.id} ended: ${e.message || e}`); return null; });
     const now = latest?.tickets?.[t.id];
     if (now && now.waiting && now.holder === role) {
       const why = timedOut ? `Agent ran longer than ${MAX_RUN_MS / 60_000} min and was stopped.`
@@ -299,7 +302,7 @@ async function startInner(t, runner) {
       }
       else if (role === 'idea') await cli(['ideas-restore', t.id, '--text', `${why}\n\n${tail}`]).catch(warn);
       else {
-        const limit = /usage limit|rate limit|quota|out of credits|upgrade to|limit reached|hit your limit|limit will reset/i.test(tail);
+        const limit = isLimit(tail);
         const code = timedOut ? 'timeout' : stopped ? 'stopped' : limit ? 'limit' : 'no_report';
         const lead = limit ? `${runner === 'cursor' ? 'Cursor' : 'Claude'} hit its usage limit. Switch the runner and rerun.` : why;
         // Builder work in the tree would block the next run as "dirty" and get stashed away.
@@ -374,8 +377,8 @@ function preflight(t, board) {
 function buildPrompt(t, role, runner, branch, board) {
   const rolePath = `${REPO}/.claude/agents/${ROLES[role]}.md`;
   const roleFile = existsSync(rolePath) ? readFileSync(rolePath, 'utf8') : `You are the ${role} engineer for Elme.`;
-  const log = board?.log?.[t.id]?.entries || [];
-  const recent = log.slice(-12).map((e) => `- [${e.kind}] ${e.who}: ${e.text}`).join('\n') || '(empty)';
+  // Not just the tail: a long log would push the SEO plan and Roman's notes out of the prompt.
+  const recent = formatLog(board?.log?.[t.id]?.entries);
   const chosen = (t.decisions || []).map((id) => {
     const d = board?.decisions?.[id];
     return d ? `- ${id}: ${d.status === 'decided' ? d.chosen : 'OPEN'}` : `- ${id}`;
@@ -387,7 +390,7 @@ function buildPrompt(t, role, runner, branch, board) {
     `\nScope:\n${t.scope}\n\nRef:\n${t.ref}`,
     `\nDecisions:\n${chosen}`,
     `\nQA items (numbered from 0):\n${(t.qa || []).map((q, i) => `${i}. ${q}`).join('\n')}`,
-    `\nRecent log:\n${recent}`,
+    `\nRecent log (oldest first; start entries left out, the latest SEO plan, QA report, builder summary and Roman's notes always kept):\n${recent}`,
     HANDOFF_ROLES.includes(role) ? handoffPrompt(t.id, role) : '',
     `\n\n# Reporting\nReport through the board CLI, then stop:\n` +
       (role === 'qa'
@@ -423,6 +426,12 @@ function cli(args) {
     const p = spawn(process.execPath, [new URL('../cli/board.mjs', import.meta.url).pathname, ...args], { stdio: 'inherit' });
     p.on('exit', (c) => (c === 0 ? resolve() : reject(new Error(`board ${args[0]} exited ${c}`))));
   });
+}
+async function retry(fn, times, waitMs) {
+  for (let i = 1; ; i++) {
+    try { return await fn(); }
+    catch (e) { if (i >= times) throw e; await new Promise((r) => setTimeout(r, waitMs)); }
+  }
 }
 async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'content-type': 'application/json' };
