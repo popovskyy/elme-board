@@ -1,0 +1,26 @@
+{
+  "note": "Added on 12 Nov 2026 after the typography review: Figtree stays, a soft serif for showcase headings.",
+  "tickets": [
+    {
+      "key": "serif-headings",
+      "kind": "FE",
+      "epic": "11 UX",
+      "wave": 1,
+      "deps": [
+        "FE-01",
+        "UX-14"
+      ],
+      "title": "Typography: a soft serif (Fraunces) for showcase headings, Figtree everywhere else",
+      "scope": "The new site is set in Figtree only. It matches the lowercase geometric logo and reads well in SKUs, prices and tables, so it stays the base. What is missing is a voice where the customer is inspired, not working: the old site had serif headings (DM Serif Display), the new one has none.\n\nStep 1 (stop for Roman): run `elme-look-options`. One page in `docs/design/`, phone and desktop, with the same real content (home hero, two home section titles, a Shop the Looks page, the collaboration landing, About us, and for contrast a PLP and a PDP header) in three looks: A Figtree only (today); B Fraunces for showcase headings; C Newsreader for showcase headings. Show for B and C a light and a regular weight and one italic accent. Do not edit templates in this step.\n\nStep 2 after the pick: add the chosen family in `hyva.config.json` → `fonts` as `font-display` (one variable woff2, Latin subset, preloaded only where a showcase heading is above the fold) and a role token for it. Use it only for: hero titles, home section titles, lookbook and collaboration page titles, About / Style Sourcebook banners. Everything else stays Figtree: category and product names, H1 on PLP and PDP, menu, buttons, forms, tables, cart, checkout, account, prices and SKUs (tabular numerals).\n\nRule: serif where the customer is inspired, sans where the customer works. The type scale of UX-14 does not change; if a showcase size needs a different line height in the serif, add it to the role token, not to a template. Also report (do not change) the body copy size on PDP descriptions and help pages if it is below 16 px.",
+      "ref": "`app/design/frontend/Elme/default/web/tailwind/hyva.config.json` (fonts, tokens), `web/tailwind/elme/typography.css`, `web/images/logo.svg`; skill `elme-look-options`; old site: DM Serif Display + Karla (`elme-port-from-luma/references/tokens-map.md`). Fraunces and Newsreader: SIL Open Font License, files stored in `web/fonts/`.",
+      "qa": [
+        "Look options page shows A, B and C on phone and desktop with the same content, and the pick is recorded in the ticket",
+        "The serif appears only on the showcase headings listed in the scope; product names, menu, forms, cart and account are Figtree",
+        "One variable font file is added, Latin subset, served from the theme (no Google Fonts request)",
+        "No layout shift when the serif loads: a fallback with matching metrics, CLS stays under 0.1 on home",
+        "Lighthouse mobile performance on home does not drop by more than 2 points",
+        "No font family or size is hardcoded in a template; styles.css rebuilt and committed"
+      ]
+    }
+  ]
+}
