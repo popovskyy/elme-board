@@ -1,0 +1,24 @@
+{
+  "note": "Added on 12 Nov 2026: PDP is narrower than the rest of the site and the info column is crowded.",
+  "tickets": [
+    {
+      "key": "pdp-width",
+      "kind": "FE",
+      "epic": "5 PDP",
+      "deps": [
+        "FE-25"
+      ],
+      "title": "PDP: page width matches the rest of the site; smaller title, calmer info column",
+      "scope": "Two problems on the product page from lg (1025 px) up.\n\n1) The page is narrower than every other page. `web/tailwind/elme/pdp.css` caps `.elme-pdp` at `max-width: --spacing(360)` (90rem = 1440 px) and centres it, and narrows the breadcrumbs to match. The comment says it was done on purpose, so the square photo still fits a laptop screen. The rest of the site uses the container: fluid up to 1920 px with 40 px gutters. On a 1920 px screen the PDP sits as a 1440 px island and the header, breadcrumbs of other pages, footer and the blocks under the product (Instagram, Our Difference, recently viewed) do not line up with it.\nMake the PDP use the same container width and gutters as other pages. Keep the photo in view another way: cap the gallery height to the viewport (`max-height` from the header offset) or cap only the gallery column, not the page. Remove the breadcrumbs override.\n\n2) The info column is crowded. The title uses `--text-display-desktop` (3.5rem = 56 px) inside a column that is about 520 px wide, so a typical name runs to three or four lines and pushes subtitle, SKU, stock, essentials, price line and buttons together. Use the h1 role (`--text-h1-desktop`, 2.5rem) or a step between, with line height from the token; let long names wrap at most to three lines at 1440 px. Then set the vertical rhythm of the column: one clear gap between groups (title block, essentials, price / buy box, accordion), smaller gaps inside a group, all from spacing tokens.\n\nStep 1 (stop for Roman): `elme-look-options` with two looks on three real products (short name, long name, sofa with configuration and swatches) at 1280, 1440 and 1920 px. Then build the picked one. Keep the sticky behaviour of the two columns. No change on phone except what the title size change brings.",
+      "ref": "`app/design/frontend/Elme/default/web/tailwind/elme/pdp.css` (.elme-pdp lg grid and max-width, breadcrumbs override, .elme-pdp__title, .elme-pdp__info gap); `web/tailwind/components/wrapper.css` (container); `hyva.config.json` tokens text.h1-desktop, text.display-desktop, container; template `Magento_Catalog::product/view/product-info.phtml`. Related: FE-100 (typography), UX-11 (PDP essentials).",
+      "qa": [
+        "At 1440 and 1920 px the PDP content edges line up with the header, the breadcrumbs of a category page and the blocks below the product",
+        "The main photo is fully visible without scrolling on a 1366 x 768 and a 1440 x 900 screen",
+        "A 60-character product name takes at most three lines at 1440 px; the title is not larger than the h1 role",
+        "Title block, essentials, price / buy box and accordion read as separate groups with consistent spacing from tokens",
+        "Sticky columns still work: the shorter column stays pinned while the longer scrolls",
+        "Phone layout is unchanged except the title size; no horizontal scroll at any width"
+      ]
+    }
+  ]
+}
