@@ -65,6 +65,8 @@ export type Decision = {
 export type LogEntry = { at: number; who: string; kind: string; text: string; code?: string };
 export type LogDoc = { entries: LogEntry[]; version?: number };
 
+export type RunUsage = { input: number; output: number; cacheRead: number; cacheWrite: number; turns: number; costUsd: number | null };
+
 export type Run = {
   id: string;
   ticketId: string;
@@ -77,13 +79,15 @@ export type Run = {
   branch?: string | null;
   model?: string;
   exitCode?: number | null;
+  /** Claude runs only, from the CLI's final result event. Cursor reports nothing. */
+  usage?: RunUsage;
   lastLines: string[];
   stopRequested: boolean;
   version?: number;
 };
 
 /** A run without its output, for the Insights tab. */
-export type RunStat = Pick<Run, 'id' | 'ticketId' | 'runner' | 'role' | 'status' | 'startedAt' | 'endedAt' | 'model'>;
+export type RunStat = Pick<Run, 'id' | 'ticketId' | 'runner' | 'role' | 'status' | 'startedAt' | 'endedAt' | 'model' | 'usage'>;
 
 export type RunnerStatus = { lastSeenAt: number; host: string; busyWith: string | null };
 

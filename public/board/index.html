@@ -299,6 +299,16 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .steps li.now i::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sc, var(--accent)); }
 .steps li.now.blocked { color: var(--warn-text); }
 
+/* Agent kit */
+.kit > summary small { font-weight: 500; margin-left: 6px; }
+.kitgrid { display: grid; gap: 8px; }
+.kit .label { font-size: 13px; font-weight: 700; color: var(--muted); margin-top: 6px; }
+.kit .label small { font-weight: 400; }
+.kskills { display: flex; flex-wrap: wrap; gap: 6px; }
+.kskill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 4px 10px; min-height: 34px; font: 12px var(--mono); cursor: pointer; }
+.kskill input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.kskill:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--st-done) 30%, var(--surface)); }
+
 /* Panel extras */
 .ph-btns { display: flex; gap: 6px; flex: none; }
 .runs, .commits { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -615,7 +625,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
 <div class="toast" id="toast" hidden role="status"></div>
 
 <script type="module">
-import { assign, block, answer, done, reopen, requestIdeas, buildFromIdeas, devHolder, requestSeo, queued, runNext, cancelQueue, archive, unarchive, editTicket } from '/board/logic.js';
+import { agentKit, KIT_PLUGINS, KIT_SKILLS, assign, block, answer, done, reopen, requestIdeas, buildFromIdeas, devHolder, requestSeo, queued, runNext, cancelQueue, archive, unarchive, editTicket } from '/board/logic.js';
 
 const STATUS = {
   todo: { label: 'To do', c: '--st-todo' },
@@ -742,12 +752,25 @@ function renderPcStatus() {
 function preferredRunner() {
   return state.pickRunner || 'claude';
 }
-function runnerSeg() {
+/** Agent kit: plugins and skills for the next run of this ticket. Saved as soon as a box changes. */
+function kitBox(t) {
+  if (!state.canWrite || t.archived) return '';
+  const kit = agentKit(t);
+  const on = Object.keys(KIT_PLUGINS).filter((k) => kit[k]).map((k) => KIT_PLUGINS[k].label);
+  const sum = `${on.length ? on.join(' + ') : 'No plugins'} · ${kit.skills.length ? `${kit.skills.length} skill${kit.skills.length === 1 ? '' : 's'}` : 'agent picks skills'}${kit.custom ? '' : ' (default)'}`;
+  const plug = Object.entries(KIT_PLUGINS).map(([k, p]) => `<label class="check"><input type="checkbox" data-kit-plugin="${k}"${kit[k] ? ' checked' : ''}><span>${p.label} <small>${p.hint}</small></span></label>`).join('');
+  const skills = KIT_SKILLS.map((s) => `<label class="kskill"><input type="checkbox" data-kit-skill="${s}"${kit.skills.includes(s) ? ' checked' : ''}><span>${s}</span></label>`).join('');
+  return `<details class="more kit"${state.kitOpen ? ' open' : ''}><summary>Agent kit <small>${esc(sum)}</small></summary>
+    <div class="kitgrid">${plug}</div>
+    <div class="label">Skills to use <small>none ticked: the agent chooses</small></div><div class="kskills">${skills}</div>
+    ${kit.custom ? '<button class="linkbtn" type="button" data-kit-reset>Back to the default</button>' : ''}</details>`;
+}
+function runnerSeg(t = null) {
   const cur = preferredRunner();
   return `<div class="runner-pick"><div class="label">Run this ticket with</div><div class="seg" role="group" aria-label="Run with" id="runner-seg">
     <button type="button" data-runner="claude" aria-pressed="${cur === 'claude'}">${ico('spark')}Claude</button>
     <button type="button" data-runner="cursor" aria-pressed="${cur === 'cursor'}">${ico('cursor')}Cursor</button>
-  </div></div>`;
+  </div></div>${t ? kitBox(t) : ''}`;
 }
 function runLiveHtml(t) {
   const run = activeRunFor(t.id);
@@ -1097,6 +1120,10 @@ function fmtDur(ms) {
 }
 function fmtAge(ms) { const h = Math.floor(ms / 3600000); return h < 1 ? 'now' : h < 48 ? `${h} h` : `${Math.floor(h / 24)} d`; }
 const runMs = (r) => Math.max(0, (r.endedAt || (r.status === 'running' ? nowMs() : r.startedAt)) - r.startedAt);
+/** Everything the model read and wrote in a run: cached reads count, they are most of a long run. */
+const runTokens = (r) => r.usage ? r.usage.input + r.usage.output + r.usage.cacheRead + r.usage.cacheWrite : 0;
+function fmtTok(n) { return n >= 1e6 ? `${(n / 1e6).toFixed(1)} M` : n >= 1e3 ? `${Math.round(n / 1e3)} k` : String(n); }
+const fmtUsd = (n) => `$${n < 10 ? n.toFixed(2) : Math.round(n)}`;
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
 function loadStats(force = false) {
   if (!window.boardStats || state.statsLoading || (!force && state.stats && Date.now() - state.stats.at < 5 * 60 * 1000)) return;
@@ -1116,7 +1143,9 @@ function toolFacts(runs) {
     const mineRuns = runs.filter((r) => r.runner === tool);
     const ended = mineRuns.filter((r) => r.status !== 'running' && r.status !== 'queued');
     const n = (s) => ended.filter((r) => r.status === s).length;
-    return { tool, runs: mineRuns.length, ended: ended.length, done: n('done'), failed: n('failed'), stopped: n('stopped'), median: median(ended.map(runMs)), total: mineRuns.reduce((a, r) => a + runMs(r), 0) };
+    const metered = mineRuns.filter((r) => r.usage);
+    return { tool, runs: mineRuns.length, ended: ended.length, done: n('done'), failed: n('failed'), stopped: n('stopped'), median: median(ended.map(runMs)), total: mineRuns.reduce((a, r) => a + runMs(r), 0),
+      metered: metered.length, tokens: metered.reduce((a, r) => a + runTokens(r), 0), cost: metered.reduce((a, r) => a + (r.usage.costUsd || 0), 0) };
   });
 }
 function renderInsights() {
@@ -1138,14 +1167,15 @@ function renderInsights() {
       const pct = x.ended ? Math.round(x.done / x.ended * 100) : 0;
       return `<tr><td>${ico(x.tool === 'cursor' ? 'cursor' : 'spark')} <strong>${x.tool === 'cursor' ? 'Cursor' : 'Claude'}</strong></td><td class="n">${x.runs}</td>
         <td class="n"><span class="rate" title="${x.done} of ${x.ended} ended runs finished"><i><b style="width:${pct}%"></b></i>${pct}%</span></td>
-        <td class="n">${x.failed}</td><td class="n">${x.stopped}</td><td class="n">${fmtDur(x.median)}</td><td class="n">${fmtDur(x.total)}</td></tr>`;
+        <td class="n">${x.failed}</td><td class="n">${x.stopped}</td><td class="n">${fmtDur(x.median)}</td><td class="n">${fmtDur(x.total)}</td>
+        <td class="n" title="${x.metered ? `${x.metered} of ${x.runs} runs measured` : 'This tool does not report tokens'}">${x.metered ? `${fmtTok(x.tokens)} · ${fmtUsd(x.cost)}` : '—'}</td></tr>`;
     }).join('');
-    tools = `<div class="tablewrap"><table><thead><tr><th>Tool</th><th class="n">Runs</th><th class="n">Finished</th><th class="n">Failed</th><th class="n">Stopped</th><th class="n">Median run</th><th class="n">Total time</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    tools = `<div class="tablewrap"><table><thead><tr><th>Tool</th><th class="n">Runs</th><th class="n">Finished</th><th class="n">Failed</th><th class="n">Stopped</th><th class="n">Median run</th><th class="n">Total time</th><th class="n">Tokens · cost</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     const per = new Map();
-    for (const r of state.stats.runs) { const x = per.get(r.ticketId) || { runs: 0, qa: 0, ms: 0 }; x.runs++; x.ms += runMs(r); if (r.role === 'qa') x.qa++; per.set(r.ticketId, x); }
+    for (const r of state.stats.runs) { const x = per.get(r.ticketId) || { runs: 0, qa: 0, ms: 0, tok: 0 }; x.runs++; x.ms += runMs(r); x.tok += runTokens(r); if (r.role === 'qa') x.qa++; per.set(r.ticketId, x); }
     const top = [...per.entries()].filter(([id]) => state.tickets.has(id)).sort((a, b) => b[1].ms - a[1].ms).slice(0, 8);
     costly = top.length ? `<section class="ins-sec"><h2>Where agent time went</h2><p>Tickets with the most agent time in the last ${state.stats.days} days. Many QA rounds mean the build came back more than once.</p>
-      <div class="tablewrap"><table><thead><tr><th>Ticket</th><th>Status</th><th class="n">Runs</th><th class="n">QA rounds</th><th class="n">Agent time</th></tr></thead><tbody>${top.map(([id, x]) => { const t = state.tickets.get(id); return `<tr><td><button type="button" data-id="${esc(id)}">${ticketRing(t)}<span class="mono">${esc(id)}</span><span>${esc(t.title)}</span></button></td><td class="statuscell">${statusCell(t.status)}</td><td class="n">${x.runs}</td><td class="n">${x.qa}</td><td class="n">${fmtDur(x.ms)}</td></tr>`; }).join('')}</tbody></table></div></section>` : '';
+      <div class="tablewrap"><table><thead><tr><th>Ticket</th><th>Status</th><th class="n">Runs</th><th class="n">QA rounds</th><th class="n">Agent time</th><th class="n">Claude tokens</th></tr></thead><tbody>${top.map(([id, x]) => { const t = state.tickets.get(id); return `<tr><td><button type="button" data-id="${esc(id)}">${ticketRing(t)}<span class="mono">${esc(id)}</span><span>${esc(t.title)}</span></button></td><td class="statuscell">${statusCell(t.status)}</td><td class="n">${x.runs}</td><td class="n">${x.qa}</td><td class="n">${fmtDur(x.ms)}</td><td class="n">${x.tok ? fmtTok(x.tok) : '—'}</td></tr>`; }).join('')}</tbody></table></div></section>` : '';
   }
   const holds = f.all.filter((t) => t.status !== 'done' && unlocksOf(t.id).length).sort((a, b) => unlocksOf(b.id).length - unlocksOf(a.id).length).slice(0, 6);
   const holdsHtml = holds.length ? `<section class="ins-sec"><h2>Opens the most work</h2><p>Open tickets that other open tickets wait for. Finishing these first frees the most.</p>
@@ -1153,7 +1183,7 @@ function renderInsights() {
   return `<div class="ins-head"><h2>Insights</h2><p>${f.done} of ${f.all.length} done · ${Math.round(f.done / Math.max(1, f.all.length) * 100)}%</p>
       <button class="export-btn" type="button" data-copy-report>${ico('copy')}<span>Copy weekly report</span></button></div>
     ${tiles}
-    <section class="ins-sec"><h2>Claude and Cursor</h2><p>Agent runs of the last ${state.stats?.days || 90} days. Finished = the run ended on its own with a report; failed and stopped runs went back to you.</p>${tools}</section>
+    <section class="ins-sec"><h2>Claude and Cursor</h2><p>Agent runs of the last ${state.stats?.days || 90} days. Finished = the run ended on its own with a report; failed and stopped runs went back to you. Tokens and cost come from Claude runs only (Cursor does not report them), from the day the runner started recording them.</p>${tools}</section>
     ${costly}${holdsHtml}`;
 }
 /** Plain text for a message to the client or the team. */
@@ -1166,7 +1196,7 @@ function weeklyReport() {
     ...block('Closed this week', f.closed), ...block('With agents now', f.working), ...block('Waiting for Roman', f.mine), ...block('No movement for 3+ days', f.stuck)];
   if (state.stats?.runs?.length) {
     const week = toolFacts(state.stats.runs.filter((r) => f.now - r.startedAt < 7 * DAY)).filter((x) => x.runs);
-    if (week.length) out.push(`Agent runs this week: ${week.map((x) => `${x.tool === 'cursor' ? 'Cursor' : 'Claude'} ${x.runs} (${x.done} finished, ${fmtDur(x.total)})`).join(', ')}`);
+    if (week.length) out.push(`Agent runs this week: ${week.map((x) => `${x.tool === 'cursor' ? 'Cursor' : 'Claude'} ${x.runs} (${x.done} finished, ${fmtDur(x.total)}${x.metered ? `, ${fmtTok(x.tokens)} tokens` : ''})`).join(', ')}`);
   }
   return out.join('\n').trim() + '\n';
 }
@@ -1198,7 +1228,7 @@ function runFactsHtml(t) {
   const runs = runsFor(t.id).slice(0, 8);
   if (!runs.length) return '';
   const dur = (r) => { const ms = (r.endedAt || Date.now()) - (r.startedAt || Date.now()); const m = Math.round(ms / 60000); return m < 1 ? '<1 min' : `${m} min`; };
-  const rows = runs.map((r) => `<li><strong>${esc(r.runner)}</strong> · ${esc(r.role)} · <span class="run-${esc(r.status)}">${esc(r.status)}</span>${r.exitCode == null || r.exitCode === '' ? '' : ` · exit ${esc(r.exitCode)}`} · ${dur(r)} · ${esc(when(r.startedAt))}<div class="by">model ${esc(r.model || 'not recorded')} · branch <code>${esc(r.branch || 'main')}</code></div></li>`).join('');
+  const rows = runs.map((r) => `<li><strong>${esc(r.runner)}</strong> · ${esc(r.role)} · <span class="run-${esc(r.status)}">${esc(r.status)}</span>${r.exitCode == null || r.exitCode === '' ? '' : ` · exit ${esc(r.exitCode)}`} · ${dur(r)} · ${esc(when(r.startedAt))}<div class="by">model ${esc(r.model || 'not recorded')} · branch <code>${esc(r.branch || 'main')}</code>${r.usage ? ` · ${fmtTok(runTokens(r))} tokens · ${r.usage.turns} turns${r.usage.costUsd != null ? ` · ${fmtUsd(r.usage.costUsd)}` : ''}` : ''}</div></li>`).join('');
   return `<section class="sec" data-run-facts><h4>Recent runs</h4><ul class="runs">${rows}</ul></section>`;
 }
 function changesHtml(t) {
@@ -1216,7 +1246,7 @@ function panelSignature(t) {
     id: t.id, status: t.status, holder: t.holder, waiting: t.waiting, runner: t.runner, branch: t.branch,
     qa: t.qaChecks, verdict: t.qaVerdict, idea: t.ideaVerdict, merge: [t.mergeRequested, t.mergedAt, t.mergeError],
     archived: !!t.archived, priority: t.priority || 0, changes: t.changes?.at || 0, title: t.title, scope: t.scope, queue: queued(live()).map((x) => x.id).join(),
-    prev: t.prev, pick: preferredRunner(), canWrite: state.canWrite,
+    prev: t.prev, pick: preferredRunner(), canWrite: state.canWrite, kit: t.kit || null,
     log: entries.length, last: last && [last.at, last.kind, last.text],
     run: run && [run.id, run.status, run.model, run.branch, run.endedAt, run.exitCode, run.role],
     online: pcOnline(), busy: state.runnerStatus?.busyWith || null, running: !!activeRunFor(t.id), unlocks: unlocksOf(t.id).join(),
@@ -1312,10 +1342,10 @@ function queueBtns(t) {
 function actions(t) {
   if (!state.canWrite) return '<p class="empty">Read only: changes are saved only for the board owner.</p>';
   if (t.archived) return `<p class="empty">Archived: hidden from the board and never queued.</p><div class="btns"><button class="btn primary" data-act="restore">${ico('rerun')}Restore</button></div>`;
-  if (t.holder === 'seo' && t.waiting) return `${runnerSeg()}<p class="empty">${pcOnline() ? 'SEO agent writes the plan on your PC; the builder starts right after.' : 'PC offline — the SEO plan starts when the runner is back.'}</p>${queueBtns(t)}`;
-  if (t.holder === 'idea' && t.waiting) return `${runnerSeg()}<p class="empty">${pcOnline() ? 'Marketing review on your PC.' : 'PC offline — the review starts when the runner is back.'}</p>${queueBtns(t)}`;
+  if (t.holder === 'seo' && t.waiting) return `${runnerSeg(t)}<p class="empty">${pcOnline() ? 'SEO agent writes the plan on your PC; the builder starts right after.' : 'PC offline — the SEO plan starts when the runner is back.'}</p>${queueBtns(t)}`;
+  if (t.holder === 'idea' && t.waiting) return `${runnerSeg(t)}<p class="empty">${pcOnline() ? 'Marketing review on your PC.' : 'PC offline — the review starts when the runner is back.'}</p>${queueBtns(t)}`;
   const ux = t.kind === 'UX';
-  const pick = runnerSeg();
+  const pick = runnerSeg(t);
   const start = ux ? `<button class="btn primary" data-act="assign" data-h="qa">${ico('play')}Send to QA</button>`
     : `<button class="btn primary" data-act="assign" data-h="${t.kind === 'BE' ? 'be' : 'fe'}">${ico('play')}Start ${t.kind === 'BE' ? 'BE' : 'FE'}</button>`;
   const altStart = ux ? '' : `<details class="more"><summary>Other start</summary><div class="btns"><button class="btn" data-act="assign" data-h="${t.kind === 'BE' ? 'fe' : 'be'}">${ico('play')}Start with the ${t.kind === 'BE' ? 'FE' : 'BE'} agent instead</button></div></details>`;
@@ -1368,6 +1398,21 @@ function actions(t) {
   return `${pick}<label for="note">Note for the agent</label><textarea id="note" placeholder="Extra context…"></textarea><div class="btns"><button class="btn" data-act="note">${ico('send')}Add note</button></div>`;
 }
 function wireActions(t) {
+  const kitEl = $('#panel .kit');
+  if (kitEl) {
+    // The panel is rebuilt after each save; remember that the box was open so it stays open.
+    kitEl.addEventListener('toggle', () => { state.kitOpen = kitEl.open; });
+    const save = async (kit) => {
+      try { await db.doc(`tickets/${t.id}`).update({ kit, updatedAt: t.updatedAt }); toast(`${t.id}: agent kit saved`); }
+      catch (e) { toast(e.message || 'Could not save the agent kit'); }
+    };
+    kitEl.addEventListener('change', () => {
+      const kit = { skills: [...kitEl.querySelectorAll('[data-kit-skill]:checked')].map((x) => x.dataset.kitSkill) };
+      kitEl.querySelectorAll('[data-kit-plugin]').forEach((x) => { kit[x.dataset.kitPlugin] = x.checked; });
+      save(kit);
+    });
+    kitEl.querySelector('[data-kit-reset]')?.addEventListener('click', () => save(null));
+  }
   const seg = $('#runner-seg');
   if (seg) seg.querySelectorAll('[data-runner]').forEach((b) => {
     b.onclick = () => {
@@ -1783,6 +1828,7 @@ $('#digest').onclick = openDigest;
 
 
 function openPanel(id) {
+  if (state.open !== id) state.kitOpen = false;
   state.open = id; state.log = null; panelKey = '';
   // Deep link: /#FE-80 opens this ticket; the phone's back button closes it.
   if (location.hash !== `#${id}`) history.pushState(null, '', `#${id}`);

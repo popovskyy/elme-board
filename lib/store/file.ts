@@ -121,7 +121,7 @@ export class FileStore implements Store {
     return Object.values((await this.read()).runs || {})
       .filter((r) => (r.startedAt || 0) > since)
       .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))
-      .map(({ id, ticketId, runner, role, status, startedAt, endedAt, model }) => ({ id, ticketId, runner, role, status, startedAt, endedAt, model }));
+      .map(({ id, ticketId, runner, role, status, startedAt, endedAt, model, usage }) => ({ id, ticketId, runner, role, status, startedAt, endedAt, model, usage }));
   }
 
   async logsBetween(from: number, to: number) {

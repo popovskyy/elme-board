@@ -264,9 +264,9 @@ export class PgStore implements Store {
 
   async runStats(since: number): Promise<RunStat[]> {
     // Only the fields the Insights tab shows: output lines stay in the database.
-    const r = await this.q<{ id: string; ticket_id: string; runner: string; role: string; status: string; started_at: string | null; ended_at: string | null; model: string | null }>(
+    const r = await this.q<{ id: string; ticket_id: string; runner: string; role: string; status: string; started_at: string | null; ended_at: string | null; model: string | null; usage: RunStat['usage'] | null }>(
       `select id, ticket_id, body->>'runner' as runner, body->>'role' as role, body->>'status' as status,
-              body->>'startedAt' as started_at, body->>'endedAt' as ended_at, body->>'model' as model
+              body->>'startedAt' as started_at, body->>'endedAt' as ended_at, body->>'model' as model, body->'usage' as usage
          from runs
         where created_at > to_timestamp($1::double precision / 1000)
         order by created_at desc
@@ -275,7 +275,7 @@ export class PgStore implements Store {
     );
     return r.rows.map((x) => ({
       id: x.id, ticketId: x.ticket_id, runner: x.runner as RunStat['runner'], role: x.role as RunStat['role'], status: x.status as RunStat['status'],
-      startedAt: Number(x.started_at) || 0, endedAt: Number(x.ended_at) || undefined, model: x.model || undefined,
+      startedAt: Number(x.started_at) || 0, endedAt: Number(x.ended_at) || undefined, model: x.model || undefined, usage: x.usage || undefined,
     }));
   }
 
