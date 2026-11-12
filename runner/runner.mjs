@@ -6,7 +6,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { queueCompare } from '../lib/logic.mjs';
+import { queueCompare, agentKit, kitSettings, kitPrompt } from '../lib/logic.mjs';
 
 loadEnv(new URL('../.env.local', import.meta.url));
 loadEnv(new URL('../.env', import.meta.url));
@@ -23,15 +23,19 @@ const LIMIT_COOLDOWN_MS = Number(process.env.LIMIT_COOLDOWN_MINUTES || 60) * 60_
 const limitedAt = { claude: 0, cursor: 0 };
 const OTHER = { claude: 'cursor', cursor: 'claude' };
 const NAME = { claude: 'Claude', cursor: 'Cursor' };
+// Model for headless Claude runs unless CLAUDE_FLAGS names one. Sonnet by default: the Claude Code default model
+// used up the plan's limit on routine tickets. CLAUDE_MODEL= (empty) leaves the choice to Claude Code.
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? 'sonnet';
 const limited = (r) => Date.now() - limitedAt[r] < LIMIT_COOLDOWN_MS;
 // Headless Claude cannot ask for approval. Without CLAUDE_FLAGS it gets this allowlist instead of skipping all checks.
 const CLAUDE_DEFAULT_FLAGS = [
   '--permission-mode', 'acceptEdits',
-  '--allowedTools', 'Read', 'Edit', 'Write', 'Glob', 'Grep', 'Skill', 'Task', 'TodoWrite',
+  // No Task: every subagent is a fresh context, and they multiplied the token use of a run.
+  '--allowedTools', 'Read', 'Edit', 'Write', 'Glob', 'Grep', 'Skill', 'TodoWrite',
   'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git add:*)', 'Bash(git commit:*)', 'Bash(git show:*)', 'Bash(git branch:*)', 'Bash(git rev-parse:*)',
   'Bash(docker ps:*)', 'Bash(docker exec:*)', 'Bash(bin/clinotty:*)', 'Bash(npm:*)', 'Bash(npx:*)', 'Bash(node:*)', 'Bash(python3:*)', 'Bash(bash .claude/skills/*)',
   'Bash(curl:*)', 'Bash(ls:*)', 'Bash(cat:*)', 'Bash(grep:*)', 'Bash(find:*)', 'Bash(sed -n:*)', 'Bash(head:*)', 'Bash(tail:*)', 'Bash(wc:*)', 'Bash(mkdir:*)',
-  '--disallowedTools', 'Bash(git push:*)', 'Bash(git merge:*)', 'Bash(git checkout:*)', 'Bash(git reset:*)', 'Bash(rm -rf:*)',
+  '--disallowedTools', 'Task', 'Bash(git push:*)', 'Bash(git merge:*)', 'Bash(git checkout:*)', 'Bash(git reset:*)', 'Bash(rm -rf:*)',
 ];
 
 let busy = null; // { ticketId, runId, child } | { ticketId, merging: true }
@@ -240,7 +244,11 @@ async function startInner(t, runner) {
       'Then `git add` the files and `git commit --no-edit` to finish the merge. This is the one merge you may complete; then do the ticket.';
   }
   const extra = (runner === 'claude' ? process.env.CLAUDE_FLAGS : process.env.CURSOR_FLAGS) || '';
-  const extraArgs = extra.trim() ? extra.trim().split(/\s+/).filter(Boolean) : (runner === 'claude' ? CLAUDE_DEFAULT_FLAGS : []);
+  const extraArgs = extra.trim() ? extra.trim().split(/\s+/).filter(Boolean) : (runner === 'claude' ? [...CLAUDE_DEFAULT_FLAGS] : []);
+  if (runner === 'claude' && CLAUDE_MODEL && !modelOf(extraArgs)) extraArgs.push('--model', CLAUDE_MODEL);
+  // Plugins on or off for this run, from the ticket's agent kit (settings on the command line win over the project's).
+  const kit = agentKit(t);
+  if (runner === 'claude') extraArgs.push('--settings', kitSettings(kit));
   // Claude: prompt on stdin (a role file starts with `---`, which the CLI would read as an option),
   //   stream-json so the board shows what the agent is doing while it works.
   // Cursor: `cursor-agent -p --force --trust -- <prompt>` (prompt positional after `--` for the same reason).
@@ -260,12 +268,13 @@ async function startInner(t, runner) {
   untrackedAtStart = untracked();
   const push = (l) => { if (l.trim()) lines.push(l.slice(0, 400)); lines.splice(0, Math.max(0, lines.length - 50)); };
   let partial = '';
+  const meta = {}; // filled from Claude's stream: model actually used, tokens and cost of the run
   const onOut = (buf) => {
     if (runner !== 'claude') { String(buf).split('\n').forEach(push); return; }
     const chunk = partial + String(buf);
     const parts = chunk.split('\n');
     partial = parts.pop();
-    for (const p of parts) for (const l of claudeEvent(p)) push(l);
+    for (const p of parts) for (const l of claudeEvent(p, meta)) push(l);
   };
   child.stdout.on('data', onOut);
   child.stderr.on('data', (buf) => String(buf).split('\n').forEach(push));
@@ -281,11 +290,11 @@ async function startInner(t, runner) {
   child.on('exit', async (code, signal) => {
     clearInterval(flush);
     clearTimeout(deadline);
-    if (partial) for (const l of claudeEvent(partial)) push(l);
+    if (partial) for (const l of claudeEvent(partial, meta)) push(l);
     if (shuttingDown) return;
     const timedOut = !!busy?.timedOut;
     const stopped = signal === 'SIGTERM' || signal === 'SIGKILL';
-    await api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines, endedAt: Date.now(), exitCode: code, status: stopped ? 'stopped' : code === 0 ? 'done' : 'failed' } }).catch(warn);
+    await api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines, endedAt: Date.now(), exitCode: code, status: stopped ? 'stopped' : code === 0 ? 'done' : 'failed', ...(meta.model ? { model: meta.model } : {}), ...(meta.usage ? { usage: meta.usage } : {}) } }).catch(warn);
     const latest = await api('/api/board').catch(() => null);
     const now = latest?.tickets?.[t.id];
     if (now && now.waiting && now.holder === role) {
@@ -388,6 +397,7 @@ function buildPrompt(t, role, runner, branch, board) {
     `\nDecisions:\n${chosen}`,
     `\nQA items (numbered from 0):\n${(t.qa || []).map((q, i) => `${i}. ${q}`).join('\n')}`,
     `\nRecent log:\n${recent}`,
+    kitPrompt(agentKit(t)),
     HANDOFF_ROLES.includes(role) ? handoffPrompt(t.id, role) : '',
     `\n\n# Reporting\nReport through the board CLI, then stop:\n` +
       (role === 'qa'
@@ -434,7 +444,8 @@ async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 // One stream-json line from `claude -p` → short readable lines for the live run view.
-function claudeEvent(line) {
+/** `meta` collects the model and, from the final `result` event, tokens, turns and cost. */
+function claudeEvent(line, meta = {}) {
   let e;
   try { e = JSON.parse(line); } catch { return line.trim() ? [line] : []; }
   const out = [];
@@ -448,8 +459,15 @@ function claudeEvent(line) {
       }
     }
   } else if (e.type === 'result') {
+    const u = e.usage || {};
+    meta.usage = {
+      input: u.input_tokens || 0, output: u.output_tokens || 0,
+      cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
+      turns: e.num_turns || 0, costUsd: typeof e.total_cost_usd === 'number' ? e.total_cost_usd : null,
+    };
     out.push(e.is_error ? `✗ ${e.subtype || 'error'}: ${String(e.result || '').split('\n')[0]}` : `✓ finished (${Math.round((e.duration_ms || 0) / 1000)} s)`);
   } else if (e.type === 'system' && e.subtype === 'init') {
+    if (e.model) meta.model = e.model;
     out.push(`claude started · model ${e.model || '?'}`);
   }
   return out;
