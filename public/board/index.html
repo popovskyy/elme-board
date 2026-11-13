@@ -664,6 +664,17 @@ const FOCUS = {
   cursor: (t) => t.waiting && t.runner === 'cursor',
   done: (t) => t.status === 'done',
 };
+/** Plan stages in order: [number, name]. The name comes from the first ticket of the stage that has one,
+ *  so one ticket saved without a stage name does not blank the whole stage. */
+function stageList(list) {
+  const names = new Map();
+  for (const t of [...list].sort((a, b) => (a.wave || 0) - (b.wave || 0))) {
+    if (!t.wave) continue;
+    if (!names.get(t.wave)) names.set(t.wave, t.waveName || '');
+  }
+  return [...names.entries()];
+}
+const stageName = (w) => stageList(live()).find(([x]) => x === w)?.[1] || '';
 /** Every view and counter works on these; archived tickets show only under Status: Archived. */
 const live = () => [...state.tickets.values()].filter((t) => !t.archived);
 let db = null, logUnsub = null, viewHtml = '', panelKey = '', viewDirty = false;
@@ -917,7 +928,7 @@ function renderOverview() {
   const picked = state.status && RING[state.status];
   const mid = picked ? [counts.find(([k]) => k === state.status)[1], STATUS[state.status].label] : [`${pct}%`, `${done} of ${all.length} done`];
   const legend = counts.map(([k, n]) => `<li><button type="button" class="${n ? '' : 'zero'}" data-status-pick="${k}" aria-pressed="${state.status === k}" style="--c:var(${RING[k]})"><i></i>${STATUS[k].label}<b>${n}</b></button></li>`).join('');
-  const waves = [...new Map(all.filter((t) => t.wave).sort((a, b) => a.wave - b.wave).map((t) => [t.wave, t.waveName])).entries()].map(([w, name]) => {
+  const waves = stageList(all).map(([w, name]) => {
     const inWave = all.filter((t) => t.wave === w);
     const d = inWave.filter((t) => t.status === 'done').length;
     const mine = inWave.filter(FOCUS.mine).length;
@@ -928,7 +939,7 @@ function renderOverview() {
       <span class="wring">${ring(ringParts(inWave), 42, 6)}<span>${p === 100 ? '✓' : p}</span></span>
       <span class="wn">${w} · ${esc(name)}</span><span class="ws">${d}/${inWave.length} done${note}</span></button>`;
   }).join('');
-  const waveName = state.wave ? all.find((t) => t.wave === state.wave)?.waveName : '';
+  const waveName = state.wave ? stageName(state.wave) : '';
   const clear = picked || state.wave ? `<span>Showing ${[picked ? STATUS[state.status].label : '', state.wave ? `stage ${state.wave} · ${esc(waveName || '')}` : ''].filter(Boolean).join(' in ')}</span><button class="linkbtn" type="button" data-ov-clear>${ico('x')}Show everything</button>` : '';
   if (state.ovMini) {
     const mine = all.filter(FOCUS.mine).length;
@@ -990,12 +1001,12 @@ function mitem(t, c) {
   return `<button class="mitem" data-id="${esc(t.id)}" style="--gc:var(${c})">
     <div class="r1"><span>${ticketRing(t)} <span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span></span>${pill(t.status)}</div>
     <div class="ttl">${esc(t.title)}</div>
-    <div class="r3">${holder(t.holder)}<span>${esc(t.waveName || t.epic)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div></button>`;
+    <div class="r3">${holder(t.holder)}<span>${esc(t.waveName || stageName(t.wave) || t.epic)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div></button>`;
 }
 function waveGroups(list) {
   const all = live();
   const withDone = visible({ withDone: true });
-  const waves = [...new Map(all.filter((t) => t.wave).sort((a, b) => a.wave - b.wave).map((t) => [t.wave, t.waveName])).entries()];
+  const waves = stageList(all);
   return waves.filter(([w]) => !state.wave || w === state.wave).map(([w, name]) => {
     const inWave = all.filter((t) => t.wave === w);
     const done = inWave.filter((t) => t.status === 'done').length;
@@ -1054,7 +1065,7 @@ function renderTable() {
       <div class="tablewrap" style="--gc:var(${c})"><table><thead><tr><th>Ticket</th><th>${state.group === 'plan' ? 'Epic' : 'Plan'}</th><th>Holder</th><th>Status</th><th>Depends on</th><th>Updated</th></tr></thead><tbody>
       ${rows.map((t) => `<tr class="row" tabindex="0" data-id="${esc(t.id)}">
         <td class="title"><div class="t">${ticketRing(t)}<span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span><span>${esc(t.title)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div></td>
-        <td>${esc(state.group === 'plan' ? t.epic : (t.wave ? t.wave + ' · ' + t.waveName : t.epic))}</td><td>${t.waiting ? holderTool(t) : holder(t.holder)}</td>
+        <td>${esc(state.group === 'plan' ? t.epic : (t.wave ? t.wave + ' · ' + (t.waveName || stageName(t.wave)) : t.epic))}</td><td>${t.waiting ? holderTool(t) : holder(t.holder)}</td>
         <td class="statuscell">${statusCell(t.archived ? 'archived' : t.status)}</td><td>${deps(t)}</td><td class="upd">${when(t.updatedAt)}</td></tr>`).join('')}
       </tbody></table></div></section>`;
   }).join('');
@@ -1073,7 +1084,7 @@ function renderKanban() {
       <div class="cards" id="col-${s}">${cards.map((t) => `<button class="card" draggable="${!narrow.matches}" data-id="${esc(t.id)}">
         <div class="meta"><span><span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span></span>${t.waiting ? holderTool(t) : holder(t.holder)}</div>
         <div class="ttl">${esc(t.title)}</div>
-        <div class="meta"><span class="kind">${esc(t.wave ? t.wave + ' · ' + t.waveName : t.epic)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div>
+        <div class="meta"><span class="kind">${esc(t.wave ? t.wave + ' · ' + (t.waveName || stageName(t.wave)) : t.epic)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div>
       </button>`).join('')}</div></section>`;
   }).join('')}</div>`;
 }
@@ -1568,7 +1579,7 @@ function openTicketForm(t = null) {
   if (!editing) closePanel();
   state.open = editing ? `${NEW_TICKET}:${t.id}` : NEW_TICKET;
   const all = live();
-  const waves = [...new Map(all.filter((x) => x.wave).sort((a, b) => a.wave - b.wave).map((x) => [x.wave, x.waveName])).entries()];
+  const waves = stageList(all);
   const epics = [...new Set(all.sort((a, b) => (a.order || 0) - (b.order || 0)).map((x) => x.epic))];
   // The epic most tickets of a wave use; the form fills it in when the plan stage changes.
   const epicOf = (w) => { const n = {}; all.filter((x) => x.wave === w).forEach((x) => (n[x.epic] = (n[x.epic] || 0) + 1)); return Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0]; };

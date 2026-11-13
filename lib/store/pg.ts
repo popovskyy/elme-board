@@ -299,12 +299,14 @@ export class PgStore implements Store {
     try {
       await client.query('begin');
       await client.query('lock table tickets in share row exclusive mode'); // two creates never get the same id
-      const r = await client.query<{ id: string; seq: number | null; ord: number | null }>(
-        "select id, (body->>'seq')::float as seq, (body->>'order')::float as ord from tickets");
+      const r = await client.query<{ id: string; seq: number | null; ord: number | null; wave: number | null; wave_name: string | null }>(
+        "select id, (body->>'seq')::float as seq, (body->>'order')::float as ord, (body->>'wave')::int as wave, body->>'waveName' as wave_name from tickets");
       const id = nextId(input.kind, r.rows.map((x) => x.id));
       const seq = Math.max(0, ...r.rows.map((x) => x.seq || 0)) + 1;
       const order = Math.max(0, ...r.rows.map((x) => x.ord || 0)) + 1;
-      const t = buildTicket(id, input, seq, order);
+      // A stage number without its name (API callers, imports) takes the name the stage already has.
+      const waveName = input.waveName || (input.wave ? r.rows.find((x) => x.wave === input.wave && x.wave_name)?.wave_name || undefined : undefined);
+      const t = buildTicket(id, { ...input, waveName }, seq, order);
       await client.query('insert into tickets (id, body, version) values ($1, $2::jsonb, 1)', [id, JSON.stringify(t)]);
       await client.query('commit');
       return { ...t, version: 1 };

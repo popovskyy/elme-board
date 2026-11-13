@@ -137,7 +137,8 @@ export class FileStore implements Store {
     return this.write((b) => {
       const all = Object.values(b.tickets);
       const id = nextId(input.kind, Object.keys(b.tickets));
-      const t = buildTicket(id, input, Math.max(0, ...all.map((x) => x.seq || 0)) + 1, Math.max(0, ...all.map((x) => x.order || 0)) + 1);
+      const waveName = input.waveName || (input.wave ? all.find((x) => x.wave === input.wave && x.waveName)?.waveName : undefined);
+      const t = buildTicket(id, { ...input, waveName }, Math.max(0, ...all.map((x) => x.seq || 0)) + 1, Math.max(0, ...all.map((x) => x.order || 0)) + 1);
       b.tickets[id] = { ...t, version: 1 };
       return b.tickets[id];
     });
