@@ -249,7 +249,7 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 /* Agents: one 3D figure per tool (three.js, loaded after first paint). The pose says what the tool is doing. */
 .agents { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
 .overview.mini .agents { flex: 1 1 100%; }
-.agent { display: flex; align-items: center; gap: 6px 12px; min-width: 0; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); border-left: 4px solid var(--line); padding: 4px 14px 4px 4px; }
+.agent { display: flex; align-items: center; gap: 6px 12px; min-width: 0; position: relative; background: var(--surface-2); border: 1px solid var(--line); border-left: 4px solid var(--line); padding: 4px 14px 4px 4px; }
 .agent.is-working { background: color-mix(in srgb, var(--st-progress) 16%, var(--surface)); border-left-color: var(--rg-progress); }
 .agent.is-queued { border-left-color: var(--rg-qa); }
 .agent.cheer { border-left-color: var(--rg-done); }
@@ -269,11 +269,22 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .agent .nowline { min-width: 0; color: var(--muted); font: 12px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent .anote { color: var(--muted); font-size: 13px; }
 
-.bot { position: relative; flex: none; width: 132px; height: 132px; margin: -14px -8px -10px -14px; }
+.bot { position: relative; flex: none; width: 132px; height: 132px; margin: -14px -8px -10px -4px; }
 .bot canvas { display: block; width: 132px; height: 132px; opacity: 0; transition: opacity 300ms ease; }
 .bot canvas.on { opacity: 1; }
 .bot.no3d, .no-figures .bot { display: none; }
 .is-off .bot { opacity: .75; filter: saturate(.5); }
+.bot canvas { cursor: pointer; }
+.agent.is-limit, .agent.is-blocked { border-left-color: var(--rg-blocked); }
+.agent.drop { outline: 2px dashed var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--st-done) 30%, var(--surface)); }
+.amark { display: none; position: absolute; left: 50%; top: 2px; transform: translateX(-50%); width: 22px; height: 22px; border-radius: 50%; background: var(--warn-text); color: var(--on-accent); font: 700 14px/22px var(--font); font-style: normal; text-align: center; }
+.is-blocked .amark { display: block; }
+.abubble { position: absolute; left: 86px; top: 0; z-index: 2; max-width: min(300px, 60vw); padding: 4px 10px; background: var(--fg); color: var(--bg); font: 12px/1.4 var(--mono); font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transform: translateY(4px); pointer-events: none; }
+.abubble.show { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .abubble { transition: opacity 200ms ease, transform 200ms var(--ease-out); }
+  .is-blocked .amark { animation: pulse 1.4s ease-in-out infinite; }
+}
 .agent { min-height: 104px; }
 .no-figures .agent, .agent:has(.bot.no3d) { min-height: 0; padding-left: 14px; }
 /* Insights */
@@ -920,43 +931,60 @@ function qaMini(t) {
 }
 /** What the PC works on right now. Timer and last output line are patched every second (patchNow), not rebuilt. */
 /** Slot for a tool's 3D figure. The canvas is owned by /board/agents/agents3d.js and re-attached after each render. */
-function botFigure(tool) { return `<span class="bot" data-bot="${tool}" aria-hidden="true"></span>`; }
+function botFigure(tool) { return `<span class="bot" data-bot="${tool}" title="Click me"><i class="abubble" data-bubble></i><i class="amark" aria-hidden="true">?</i></span>`; }
 let agents3d = null, agents3dAsked = false;
 function syncFigures() {
   if (agents3d) { agents3d.sync($('#view')); return; }
   if (agents3dAsked || !$('#view .bot')) return;
   agents3dAsked = true;
   // Loaded after the board is on screen: three.js and two models must not delay the tickets.
-  import('/board/agents/agents3d.js?v=1').then((m) => { agents3d = m; m.sync($('#view')); }, () => document.body.classList.add('no-figures'));
+  import('/board/agents/agents3d.js?v=2').then((m) => { agents3d = m; m.sync($('#view')); }, () => document.body.classList.add('no-figures'));
 }
 /** What each tool does right now: working on a ticket, waiting with a queue, free, or asleep while the PC is off.
  *  Timer, last output line and the "just finished" mood are patched every second (patchNow), not rebuilt. */
+const LIMIT_REST_MS = 60 * 60_000; // the runner's default cooldown after a usage limit
+/** When the tool's last run hit its usage limit and the cooldown is not over: the time that run ended. */
+function limitedSince(tool) {
+  const last = Object.values(state.runs || {}).filter((r) => r.runner === tool && r.endedAt).sort((x, y) => y.endedAt - x.endedAt)[0];
+  return last?.limit && Date.now() + (state.skew || 0) - last.endedAt < LIMIT_REST_MS ? last.endedAt : 0;
+}
 function nowRunning(mini = false) {
   const q = queued(live());
   const cards = ['claude', 'cursor'].map((tool) => {
     const name = tool === 'cursor' ? 'Cursor' : 'Claude';
     const run = Object.values(state.runs || {}).find((r) => r.runner === tool && (r.status === 'running' || r.status === 'queued') && state.tickets.has(r.ticketId));
     const mineQ = q.filter((t) => (t.runner || 'claude') === tool && !activeRunFor(t.id));
+    const asks = live().filter((t) => t.status === 'blocked' && (t.runner || 'claude') === tool).sort((x, y) => (x.updatedAt || 0) - (y.updatedAt || 0));
     const off = state.metaSeen && !pcOnline();
-    const st = run ? 'working' : mineQ.length ? (off ? 'off' : 'queued') : off ? 'off' : 'idle';
+    const rest = limitedSince(tool);
+    const st = run ? 'working' : off ? 'off' : rest ? 'limit' : mineQ.length ? 'queued' : asks.length ? 'blocked' : 'idle';
     if (mini && st !== 'working' && !mineQ.length) return '';
     const tk = (t) => `<button class="nowmain" type="button" data-id="${esc(t.id)}"><span class="mono">${esc(t.id)}</span><b>${esc(t.title)}</b></button>`;
+    const flash = '<span class="aflash" data-agent-flash></span>';
     let body;
     if (run) {
       const t = state.tickets.get(run.ticketId);
-      body = `<div class="aname"><b>${name}</b><span class="chip work">${run.status === 'running' ? `${esc(HOLDER[t.holder]?.[0] || 'Agent')} at work` : 'Starting'}</span><span class="timer" data-run-timer="${esc(run.id)}"></span>
+      body = `<div class="aname"><b>${name}</b><span class="chip work">${run.status === 'running' ? `${esc(HOLDER[run.role]?.[0] || HOLDER[t.holder]?.[0] || 'Agent')} at work` : 'Starting'}</span><span class="timer" data-run-timer="${esc(run.id)}"></span>
           ${state.canWrite ? `<button class="linkbtn" type="button" data-qact="stop" data-run="${esc(run.id)}">${ico('stop')}Stop</button>` : ''}</div>
         ${tk(t)}<span class="nowline" data-run-line="${esc(run.id)}"></span>${mineQ.length ? `<span class="anote">then ${mineQ.length} more in the queue</span>` : ''}`;
+    } else if (st === 'limit') {
+      const left = Math.max(1, Math.round((LIMIT_REST_MS - (Date.now() + (state.skew || 0) - rest)) / 60_000));
+      body = `<div class="aname"><b>${name}</b><span class="chip" style="color:var(--warn-text)">Usage limit</span>${flash}</div>
+        <span class="anote">Out of breath: hit its usage limit. Back in about ${left} min${mineQ.length ? `; ${mineQ.length} in its queue` : ''}.</span>`;
     } else if (mineQ.length) {
-      body = `<div class="aname"><b>${name}</b><span class="chip tool">${off ? 'PC offline' : 'Up next'}</span><span class="aflash" data-agent-flash></span></div>
+      body = `<div class="aname"><b>${name}</b><span class="chip tool">${off ? 'PC offline' : 'Up next'}</span>${flash}</div>
         ${tk(mineQ[0])}<span class="anote">${mineQ.length > 1 ? `and ${mineQ.length - 1} more in the queue · ` : ''}${off ? 'starts when the PC is back' : 'starts when the PC is free'}</span>`;
+    } else if (st === 'blocked') {
+      body = `<div class="aname"><b>${name}</b><span class="chip" style="color:var(--warn-text)">${ico('ask')}Needs you</span>${flash}</div>
+        ${tk(asks[0])}<span class="anote">${asks.length > 1 ? `and ${asks.length - 1} more tickets wait` : 'waits'} for your answer</span>`;
     } else {
-      body = `<div class="aname"><b>${name}</b><span class="aflash" data-agent-flash></span></div><span class="anote">${off ? 'Asleep: the PC is offline.' : 'Free. Assign a ticket and it gets to work.'}</span>`;
+      body = `<div class="aname"><b>${name}</b>${flash}</div><span class="anote">${off ? 'Asleep: the PC is offline.' : state.canWrite ? 'Free. Drop a ticket here and it gets to work.' : 'Free.'}</span>`;
     }
-    return `<div class="agent is-${st}" data-agent="${tool}">${botFigure(tool)}<div class="ainfo">${body}</div></div>`;
+    return `<div class="agent is-${st}" data-agent="${tool}"${run ? ` data-role="${esc(run.role || '')}"` : ''}>${botFigure(tool)}<div class="ainfo">${body}</div></div>`;
   }).join('');
   return cards ? `<div class="agents">${cards}</div>` : '';
 }
+const lastLineOf = new Map(); // run id -> last output line seen, so a new one makes the figure strike once
 function patchNow() {
   document.querySelectorAll('#view [data-run-timer]').forEach((el) => {
     const r = state.runs?.[el.dataset.runTimer]; if (!r) return;
@@ -965,7 +993,17 @@ function patchNow() {
     const line = el.closest('.agent')?.querySelector('[data-run-line]');
     const last = (r.lastLines || []).filter((l) => String(l).trim()).slice(-1)[0] || 'Waiting for agent output…';
     if (line && line.textContent !== last) line.textContent = last;
+    // A new line of output: the figure strikes once and says the line.
+    const card = el.closest('.agent');
+    const seen = lastLineOf.get(r.id);
+    lastLineOf.set(r.id, last);
+    if (card && seen !== undefined && seen !== last) {
+      agents3d?.pulse(card.dataset.agent);
+      const bubble = card.querySelector('[data-bubble]');
+      if (bubble) { const text = last.replace(/^[→✓✗]\s*/, ''); bubble.textContent = text.length > 44 ? `${text.slice(0, 43)}…` : text; bubble.classList.add('show'); bubble.dataset.until = String(Date.now() + 4000); }
+    }
   });
+  document.querySelectorAll('#view .abubble.show').forEach((bubble) => { if (Date.now() > Number(bubble.dataset.until)) bubble.classList.remove('show'); });
   // A tool that finished a run in the last 90 s celebrates; one whose run failed or was stopped hangs its head.
   const now = Date.now() + (state.skew || 0);
   document.querySelectorAll('#view .agent').forEach((el) => {
@@ -1125,7 +1163,7 @@ function renderTable() {
     if (narrow.matches) return `<section class="group">${head}<div class="mlist">${rows.map((t) => mitem(t, STATUS[t.status]?.c || c)).join('')}</div></section>`;
     return `<section class="group">${head}
       <div class="tablewrap" style="--gc:var(${c})"><table><thead><tr><th>Ticket</th><th>${state.group === 'plan' ? 'Epic' : 'Plan'}</th><th>Holder</th><th>Status</th><th>Depends on</th><th>Updated</th></tr></thead><tbody>
-      ${rows.map((t) => `<tr class="row" tabindex="0" data-id="${esc(t.id)}">
+      ${rows.map((t) => `<tr class="row" tabindex="0" draggable="${state.canWrite && !narrow.matches}" data-id="${esc(t.id)}">
         <td class="title"><div class="t">${ticketRing(t)}<span class="seq">#${t.seq ?? '–'}</span><span class="mono">${esc(t.id)}</span><span>${esc(t.title)}</span>${badges(t)}${qaMini(t)}${unlocksChip(t)}</div></td>
         <td>${esc(state.group === 'plan' ? t.epic : (t.wave ? t.wave + ' · ' + (t.waveName || stageName(t.wave)) : t.epic))}</td><td>${t.waiting ? holderTool(t) : holder(t.holder)}</td>
         <td class="statuscell">${statusCell(t.archived ? 'archived' : t.status)}</td><td>${deps(t)}</td><td class="upd">${when(t.updatedAt)}</td></tr>`).join('')}
@@ -1926,7 +1964,7 @@ function closePanel() {
 
 /* Kanban drag and drop */
 let dragId = null;
-document.addEventListener('dragstart', (e) => { const c = e.target.closest?.('.card'); if (c) { dragId = c.dataset.id; e.dataTransfer.setData('text/plain', dragId); } });
+document.addEventListener('dragstart', (e) => { const c = e.target.closest?.('.card, tr.row'); if (c) { dragId = c.dataset.id; e.dataTransfer.setData('text/plain', dragId); } });
 document.addEventListener('dragover', (e) => { const col = e.target.closest?.('.col'); if (col && dragId) { e.preventDefault(); document.querySelectorAll('.col.over').forEach((x) => x !== col && x.classList.remove('over')); col.classList.add('over'); } });
 document.addEventListener('dragleave', (e) => { const col = e.target.closest?.('.col'); if (col && !col.contains(e.relatedTarget)) col.classList.remove('over'); });
 document.addEventListener('drop', async (e) => {
@@ -1942,6 +1980,30 @@ document.addEventListener('drop', async (e) => {
     else if (to === 'done') await change(t, done(t), 'Accepted after review.', 'log');
     else { toast('Open the ticket to do that.'); openPanel(t.id); }
   } catch (err) { toast(err.message); }
+});
+
+/* A ticket dropped on a figure starts with that tool. */
+async function assignTo(tool, t) {
+  const name = tool === 'cursor' ? 'Cursor' : 'Claude';
+  if (t.archived || t.waiting || !['todo', 'blocked'].includes(t.status)) { toast(`${t.id}: open the ticket to do that.`); openPanel(t.id); return; }
+  if (t.status === 'todo' && !isReady(t)) { toast(`${t.id} is not ready: its dependencies or decisions are open.`); openPanel(t.id); return; }
+  state.pickRunner = tool; try { localStorage.setItem('elme-board-runner', tool); } catch {}
+  const h = t.status === 'blocked' ? rerunHolder(t) : devHolder(t);
+  const patch = { ...assign(t.status === 'blocked' ? { ...t, status: 'todo' } : t, h), runner: tool, prev: null };
+  await change(t, patch, `Roman ${t.status === 'blocked' ? 'reran' : 'started'} the ticket with the ${HOLDER[h][2]} (${tool}), dropped on ${name}.`, 'log');
+}
+document.addEventListener('dragover', (e) => {
+  const card = e.target.closest?.('.agent');
+  document.querySelectorAll('.agent.drop').forEach((x) => x !== card && x.classList.remove('drop'));
+  if (card && dragId && state.canWrite) { e.preventDefault(); card.classList.add('drop'); }
+});
+document.addEventListener('dragend', () => { dragId = null; document.querySelectorAll('.agent.drop, .col.over').forEach((x) => x.classList.remove('drop', 'over')); });
+document.addEventListener('drop', async (e) => {
+  const card = e.target.closest?.('.agent'); if (!card || !dragId || !state.canWrite) return;
+  e.preventDefault(); card.classList.remove('drop');
+  const t = state.tickets.get(dragId); dragId = null;
+  if (!t) return;
+  try { await assignTo(card.dataset.agent, t); } catch (err) { toast(err.message || 'Could not start the ticket'); }
 });
 
 /* Events */
@@ -2086,7 +2148,7 @@ try { const v = localStorage.getItem('elme-board-view'); if (v) document.querySe
 let queueSig = '';
 function syncQueueView() {
   const running = Object.values(state.runs || {}).filter((r) => r.status === 'running' || r.status === 'queued').map((r) => r.ticketId).sort().join();
-  const sig = `${state.metaSeen}|${pcOnline()}|${running}`;
+  const sig = `${state.metaSeen}|${pcOnline()}|${running}|${limitedSince('claude') ? 1 : 0}${limitedSince('cursor') ? 1 : 0}`;
   if (sig === queueSig) return;
   queueSig = sig;
   if (state.view !== 'decisions') render();

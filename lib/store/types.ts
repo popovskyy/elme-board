@@ -79,6 +79,8 @@ export type Run = {
   branch?: string | null;
   model?: string;
   exitCode?: number | null;
+  /** The run stopped on the tool's usage limit. */
+  limit?: boolean;
   /** Claude runs only, from the CLI's final result event. Cursor reports nothing. */
   usage?: RunUsage;
   lastLines: string[];

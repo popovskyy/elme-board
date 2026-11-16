@@ -324,6 +324,8 @@ async function startInner(t, runner) {
         await cli(['log', t.id, '--who', 'watcher', '--kind', 'handoff', '--text',
           notes ? notes.slice(0, 6000) : 'The agent left no handoff notes; the next run gets the runner notes (last output, changed files).']).catch(warn);
         if (limit) limitedAt[runner] = Date.now();
+        // The board shows the tool as resting while the cooldown lasts.
+        if (limit) await api(`/api/runs/${run.id}`, { method: 'PATCH', body: { limit: true } }).catch(warn);
         if (limit && AUTO_SWITCH && !limited(OTHER[runner]) && now) {
           // Ticket stays queued with the same agent role; only the tool changes. The next loop starts it.
           await api(`/api/tickets/${t.id}`).then((fresh) => patchTicket(fresh, { runner: OTHER[runner] })).catch(warn);
