@@ -14,6 +14,7 @@
     "runner": "node runner/runner.mjs",
     "board": "node cli/board.mjs",
     "import-tickets": "node scripts/import-tickets.mjs",
+    "build-agents": "esbuild lib/agents3d.src.mjs --bundle --minify --format=esm --target=es2020 --outfile=public/board/agents/agents3d.js",
     "test": "node --test lib/logic.test.mjs lib/digest.test.mjs runner/prompt.test.mjs",
     "typecheck": "tsc --noEmit"
   },
@@ -27,7 +28,11 @@
     "@types/node": "22.15.30",
     "@types/pg": "8.15.4",
     "@types/react": "19.1.8",
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0",
     "typescript": "5.9.3"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
