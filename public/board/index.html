@@ -247,56 +247,54 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
   .wcard:active { transform: scale(0.97); }
 }
 @property --mark-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-/* Agents: one card per tool with its mark; a ring and a badge say what the tool is doing. */
-.agents { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
-.overview.mini .agents { flex: 1 1 100%; }
-.agent { display: flex; align-items: center; gap: 6px 12px; min-width: 0; position: relative; background: var(--surface-2); border: 1px solid var(--line); border-left: 4px solid var(--line); padding: 4px 14px 4px 4px; }
-.agent.is-working { background: color-mix(in srgb, var(--st-progress) 16%, var(--surface)); border-left-color: var(--rg-progress); }
-.agent.is-queued { border-left-color: var(--rg-qa); }
-.agent.cheer { border-left-color: var(--rg-done); }
-.agent.sad { border-left-color: var(--rg-blocked); }
-.ainfo { display: grid; gap: 2px; min-width: 0; flex: 1; }
-.aname { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
-.aname b { font: 400 19px/1.2 var(--display); }
-.aname .timer { font-variant-numeric: tabular-nums; font-weight: 700; }
-.aname .linkbtn { margin-left: auto; }
-.aflash { font-weight: 700; font-size: 13px; }
+/* Agents: Claude and Cursor in the header, a small chip each. The mark's frame and a badge say what the tool is doing. */
+.agents { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.agent { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; padding: 5px 14px 5px 6px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.agent.is-working { background: color-mix(in srgb, var(--st-progress) 16%, var(--surface)); border-color: color-mix(in srgb, var(--rg-progress) 50%, var(--line)); }
+.agent.is-limit, .agent.is-blocked, .agent.sad { border-color: color-mix(in srgb, var(--rg-blocked) 50%, var(--line)); }
+.agent.cheer { border-color: color-mix(in srgb, var(--rg-done) 55%, var(--line)); }
+.agent.drop { outline: 2px dashed var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--st-done) 30%, var(--surface)); }
+.ainfo { display: grid; gap: 1px; min-width: 0; }
+.aname { display: flex; align-items: center; gap: 2px 8px; white-space: nowrap; }
+.aname b { font: 400 17px/1.15 var(--display); }
+.aname .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 12px; }
+.aname .atag { font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
+.aname .atag.warn { color: var(--warn-text); }
+.aname .linkbtn { padding: 2px 4px; min-height: 22px; margin-left: 2px; }
+.aflash { font-weight: 700; font-size: 12px; }
 .agent.cheer .aflash { color: var(--ok-text); }
 .agent.sad .aflash { color: var(--warn-text); }
-.agent .nowmain { display: flex; gap: 10px; align-items: baseline; min-width: 0; background: none; border: 0; padding: 2px 0; text-align: left; }
+.agent .nowmain { display: flex; gap: 6px; align-items: baseline; min-width: 0; max-width: 210px; background: none; border: 0; padding: 0; text-align: left; font-size: 12px; line-height: 1.3; }
 .agent .nowmain b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent .nowmain:hover b { text-decoration: underline; }
-.agent .nowmain .mono { white-space: nowrap; }
-.agent .nowline { min-width: 0; color: var(--muted); font: 12px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.agent .anote { color: var(--muted); font-size: 13px; }
+.agent .nowmain .mono { white-space: nowrap; font-size: 11px; color: var(--muted); }
+.agent .anote { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
-.bot { position: relative; flex: none; display: grid; place-items: center; width: 64px; height: 64px; margin: 4px 2px 4px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); color: #D97757; }
+@property --mark-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.bot { position: relative; flex: none; display: grid; place-items: center; width: 34px; height: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; color: #D97757; }
 .bot-cursor { color: #FFFFFF; background: #1B1B1B; border-color: #1B1B1B; }
-.bot svg { width: 34px; height: 34px; display: block; }
-/* ring: what the tool is doing */
-/* The frame is the tile's own outline: same shape, same size, 3px thick. */
-.aring { position: absolute; inset: -1px; border-radius: 16px; border: 3px solid transparent; pointer-events: none; }
+.bot svg { width: 19px; height: 19px; display: block; }
+/* The frame is the tile's own outline: same shape, same size, 2px thick. */
+.aring { position: absolute; inset: -1px; border-radius: 9px; border: 2px solid transparent; pointer-events: none; }
 .is-working .aring { border-color: var(--rg-progress); }
-.is-queued .aring { border: 3px dashed var(--rg-qa); }
+.is-queued .aring { border: 2px dashed var(--rg-qa); }
 .is-blocked .aring, .is-limit .aring, .sad .aring { border-color: var(--rg-blocked); }
 .cheer .aring { border-color: var(--rg-done); }
 .is-off .bot { filter: grayscale(1); opacity: .5; }
 .is-limit .bot { filter: grayscale(.7); }
 /* badge: the one thing to notice */
-.amark { display: none; position: absolute; right: -8px; top: -8px; width: 22px; height: 22px; border-radius: 50%; background: var(--warn-text); color: var(--on-accent); font: 700 13px/22px var(--font); font-style: normal; text-align: center; }
+.amark { display: none; position: absolute; right: -6px; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: var(--warn-text); color: var(--on-accent); font: 700 10px/16px var(--font); font-style: normal; text-align: center; }
 .is-blocked .amark, .is-limit .amark, .cheer .amark, .sad .amark { display: block; }
 .is-blocked .amark::after { content: '?'; }
-.is-limit .amark::after { content: 'II'; font-size: 10px; letter-spacing: 1px; }
-.sad .amark::after { content: '\00d7'; font-size: 16px; }
+.is-limit .amark::after { content: 'II'; font-size: 7px; letter-spacing: 1px; }
+.sad .amark::after { content: '\00d7'; font-size: 12px; }
 .cheer .amark { background: var(--rg-done); }
 .cheer .amark::after { content: '\2713'; }
-.agent.is-limit, .agent.is-blocked { border-left-color: var(--rg-blocked); }
-.agent.drop { outline: 2px dashed var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--st-done) 30%, var(--surface)); }
 @media (prefers-reduced-motion: no-preference) {
-  .agent .nowline.fresh { animation: line-fresh 1.6s ease-out; }
-  @keyframes line-fresh { from { color: var(--fg); background: color-mix(in srgb, var(--st-progress) 45%, transparent); } }
+  .agent .nowmain.fresh { animation: line-fresh 1.6s ease-out; }
+  @keyframes line-fresh { from { background: color-mix(in srgb, var(--st-progress) 45%, transparent); } }
   /* While a run goes, a bright stretch travels along the frame; the frame itself does not turn. */
-  .is-working .aring { border: 0; padding: 3px; background: conic-gradient(from var(--mark-a), var(--rg-progress) 0 28%, color-mix(in srgb, var(--rg-progress) 28%, transparent) 28% 100%);
+  .is-working .aring { border: 0; padding: 2px; background: conic-gradient(from var(--mark-a), var(--rg-progress) 0 28%, color-mix(in srgb, var(--rg-progress) 28%, transparent) 28% 100%);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: mark-spin 1.4s linear infinite; }
   .is-working .bot-claude svg { animation: mark-turn 6s linear infinite; }
   .is-working .bot-cursor svg { animation: mark-breathe 1.6s ease-in-out infinite; }
@@ -308,8 +306,9 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
   @keyframes mark-turn { to { transform: rotate(360deg); } }
   @keyframes mark-breathe { 50% { transform: scale(.88); } }
   @keyframes mark-hit { 40% { transform: scale(1.25); } }
-  @keyframes mark-hop { 40% { transform: translateY(-6px); } }
+  @keyframes mark-hop { 40% { transform: translateY(-4px); } }
 }
+
 /* Insights */
 .ins-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 16px; }
 .ins-head h2 { margin: 0; font: 400 26px/1.2 var(--display); }
@@ -531,6 +530,12 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .tools { display: none; }
   body.show-tools .tools { display: grid; gap: 10px; width: 100%; }
   .counters { order: 3; }
+  .agents { order: 2; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .agent { padding: 5px 8px 5px 5px; gap: 8px; }
+  .agent .nowmain { max-width: none; }
+  .aname b { font-size: 16px; }
+  .is-working .aname .atag { display: none; }
+  .ainfo { flex: 1; }
   .pc-status { width: auto !important; margin-left: 0; min-height: 40px !important; padding: 6px 10px; font-size: 13px !important; }
   .pc-status .ico { display: none; }
   /* Ticket panel: one scroller for the whole sheet, actions right under the header. */
@@ -565,8 +570,6 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .ov-waves { margin-inline: -14px; padding-inline: 14px; scrollbar-width: none; }
   .wcard { min-height: 56px; }
   .steps li { font-size: 10px; }
-  .agents { grid-template-columns: minmax(0, 1fr); }
-  .agent .nowmain b { white-space: normal; }
   .tiles { grid-template-columns: minmax(0, 1fr); }
   .ins-head .export-btn { margin-left: 0; }
   .ins-head .export-btn span { display: inline; }
@@ -638,6 +641,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   <div class="titlerow">
     <h1>Elme <span>Board</span></h1>
     <span class="sub">Hyvä port roadmap</span>
+    <div class="agents" id="agents" aria-label="Claude and Cursor"></div>
     <div class="pc-status" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">Checking PC…</span></div>
     <button class="export-btn" id="digest" type="button" aria-label="Daily update"><svg class="ico" aria-hidden="true"><use href="#i-note"/></svg><span>Update</span></button>
     <button class="export-btn" id="export" type="button" aria-label="Export for QA"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg><span>Export</span></button>
@@ -969,9 +973,13 @@ function limitedSince(tool) {
   const last = Object.values(state.runs || {}).filter((r) => r.runner === tool && r.endedAt).sort((x, y) => y.endedAt - x.endedAt)[0];
   return last?.limit && Date.now() + (state.skew || 0) - last.endedAt < LIMIT_REST_MS ? last.endedAt : 0;
 }
-function nowRunning(mini = false) {
+let agentsHtml = '';
+/** Claude and Cursor in the header: the mark with its state, one line of text, the ticket they are on.
+ *  Timer, last output line (as the tooltip) and the "just finished" mood are patched every second (patchNow). */
+function renderAgents() {
+  const el = $('#agents'); if (!el) return;
   const q = queued(live());
-  const cards = ['claude', 'cursor'].map((tool) => {
+  const html = ['claude', 'cursor'].map((tool) => {
     const name = tool === 'cursor' ? 'Cursor' : 'Claude';
     const run = Object.values(state.runs || {}).find((r) => r.runner === tool && (r.status === 'running' || r.status === 'queued') && state.tickets.has(r.ticketId));
     const mineQ = q.filter((t) => (t.runner || 'claude') === tool && !activeRunFor(t.id));
@@ -979,53 +987,56 @@ function nowRunning(mini = false) {
     const off = state.metaSeen && !pcOnline();
     const rest = limitedSince(tool);
     const st = run ? 'working' : off ? 'off' : rest ? 'limit' : mineQ.length ? 'queued' : asks.length ? 'blocked' : 'idle';
-    if (mini && st !== 'working' && !mineQ.length) return '';
-    const tk = (t) => `<button class="nowmain" type="button" data-id="${esc(t.id)}"><span class="mono">${esc(t.id)}</span><b>${esc(t.title)}</b></button>`;
+    const tk = (t, more = 0) => `<button class="nowmain" type="button" data-id="${esc(t.id)}" title="${esc(t.title)}"><span class="mono">${esc(t.id)}</span><b>${esc(t.title)}</b>${more ? `<span class="anote">+${more}</span>` : ''}</button>`;
     const flash = '<span class="aflash" data-agent-flash></span>';
-    let body;
+    let l1, l2 = '', hint = `Drop a ticket here to start it with ${name}`;
     if (run) {
       const t = state.tickets.get(run.ticketId);
-      body = `<div class="aname"><b>${name}</b><span class="chip work">${run.status === 'running' ? `${esc(HOLDER[run.role]?.[0] || HOLDER[t.holder]?.[0] || 'Agent')} at work` : 'Starting'}</span><span class="timer" data-run-timer="${esc(run.id)}"></span>
-          ${state.canWrite ? `<button class="linkbtn" type="button" data-qact="stop" data-run="${esc(run.id)}">${ico('stop')}Stop</button>` : ''}</div>
-        ${tk(t)}<span class="nowline" data-run-line="${esc(run.id)}"></span>${mineQ.length ? `<span class="anote">then ${mineQ.length} more in the queue</span>` : ''}`;
+      l1 = `<b>${name}</b><span class="atag">${run.status === 'running' ? esc(HOLDER[run.role]?.[0] || HOLDER[t.holder]?.[0] || '') : 'starting'}</span><span class="timer" data-run-timer="${esc(run.id)}"></span>
+        ${state.canWrite ? `<button class="linkbtn" type="button" data-qact="stop" data-run="${esc(run.id)}" aria-label="Stop ${name}" title="Stop">${ico('stop')}</button>` : ''}`;
+      l2 = tk(t, mineQ.length);
+      hint = 'Waiting for agent output…';
     } else if (st === 'limit') {
       const left = Math.max(1, Math.round((LIMIT_REST_MS - (Date.now() + (state.skew || 0) - rest)) / 60_000));
-      body = `<div class="aname"><b>${name}</b><span class="chip" style="color:var(--warn-text)">Usage limit</span>${flash}</div>
-        <span class="anote">Out of breath: hit its usage limit. Back in about ${left} min${mineQ.length ? `; ${mineQ.length} in its queue` : ''}.</span>`;
+      l1 = `<b>${name}</b><span class="atag warn">Usage limit</span>${flash}`;
+      l2 = `<span class="anote">back in about ${left} min${mineQ.length ? ` · ${mineQ.length} queued` : ''}</span>`;
     } else if (mineQ.length) {
-      body = `<div class="aname"><b>${name}</b><span class="chip tool">${off ? 'PC offline' : 'Up next'}</span>${flash}</div>
-        ${tk(mineQ[0])}<span class="anote">${mineQ.length > 1 ? `and ${mineQ.length - 1} more in the queue · ` : ''}${off ? 'starts when the PC is back' : 'starts when the PC is free'}</span>`;
+      l1 = `<b>${name}</b><span class="atag">${off ? 'PC offline' : 'up next'}</span>${flash}`;
+      l2 = tk(mineQ[0], mineQ.length - 1);
     } else if (st === 'blocked') {
-      body = `<div class="aname"><b>${name}</b><span class="chip" style="color:var(--warn-text)">${ico('ask')}Needs you</span>${flash}</div>
-        ${tk(asks[0])}<span class="anote">${asks.length > 1 ? `and ${asks.length - 1} more tickets wait` : 'waits'} for your answer</span>`;
+      l1 = `<b>${name}</b><span class="atag warn">needs you</span>${flash}`;
+      l2 = tk(asks[0], asks.length - 1);
     } else {
-      body = `<div class="aname"><b>${name}</b>${flash}</div><span class="anote">${off ? 'Asleep: the PC is offline.' : state.canWrite ? 'Free. Drop a ticket here and it gets to work.' : 'Free.'}</span>`;
+      l1 = `<b>${name}</b><span class="anote">${off ? 'asleep' : 'free'}</span>${flash}`;
     }
-    return `<div class="agent is-${st}" data-agent="${tool}"${run ? ` data-role="${esc(run.role || '')}"` : ''}>${botFigure(tool)}<div class="ainfo">${body}</div></div>`;
+    return `<div class="agent is-${st}" data-agent="${tool}"${run ? ` data-role="${esc(run.role || '')}"` : ''} title="${esc(hint)}">${botFigure(tool)}<div class="ainfo"><div class="aname">${l1}</div>${l2}</div></div>`;
   }).join('');
-  return cards ? `<div class="agents">${cards}</div>` : '';
+  if (html === agentsHtml) return;
+  agentsHtml = html;
+  el.innerHTML = html;
+  patchNow(); // the mood classes and the timers live on the new elements
 }
 const lastLineOf = new Map(); // run id -> last output line seen, so a new one bumps the mark once
 function patchNow() {
-  document.querySelectorAll('#view [data-run-timer]').forEach((el) => {
+  document.querySelectorAll('#agents [data-run-timer]').forEach((el) => {
     const r = state.runs?.[el.dataset.runTimer]; if (!r) return;
     const sec = Math.max(0, Math.round((Date.now() - (r.startedAt || Date.now())) / 1000));
     el.textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
-    const line = el.closest('.agent')?.querySelector('[data-run-line]');
     const last = (r.lastLines || []).filter((l) => String(l).trim()).slice(-1)[0] || 'Waiting for agent output…';
-    if (line && line.textContent !== last) line.textContent = last;
-    // A new line of output: the mark bumps once and the line lights up.
+    const line = el.closest('.agent')?.querySelector('.nowmain');
+    if (el.closest('.agent') && el.closest('.agent').title !== last) el.closest('.agent').title = last; // the last output line is the tooltip
+    // A new line of output: the mark bumps once and the ticket line lights up.
     const card = el.closest('.agent');
     const seen = lastLineOf.get(r.id);
     lastLineOf.set(r.id, last);
     if (card && seen !== undefined && seen !== last) {
       const mark = card.querySelector('.bot'); mark?.classList.remove('hit'); void mark?.offsetWidth; mark?.classList.add('hit'); setTimeout(() => mark?.classList.remove('hit'), 400);
-      if (line) { line.classList.remove('fresh'); void line.offsetWidth; line.classList.add('fresh'); }
+      if (line) { line.classList.remove('fresh'); void line.offsetWidth; line.classList.add('fresh'); setTimeout(() => line.classList.remove('fresh'), 1700); }
     }
   });
   // A tool that finished a run in the last 90 s celebrates; one whose run failed or was stopped hangs its head.
   const now = Date.now() + (state.skew || 0);
-  document.querySelectorAll('#view .agent').forEach((el) => {
+  document.querySelectorAll('#agents .agent').forEach((el) => {
     const last = el.classList.contains('is-working') ? null : Object.values(state.runs || {})
       .filter((r) => r.runner === el.dataset.agent && r.endedAt && now - r.endedAt < 90_000).sort((x, y) => y.endedAt - x.endedAt)[0];
     const mood = last ? (last.status === 'done' ? 'cheer' : 'sad') : '';
@@ -1063,9 +1074,9 @@ function renderOverview() {
     const mine = all.filter(FOCUS.mine).length;
     return `<section class="overview mini" aria-label="Progress overview">
       <button class="ov-mini" type="button" data-ov-toggle aria-expanded="false" title="Show the progress overview">${ring(ringParts(all), 30, 6)}<b>${pct}%</b><span>${done} of ${all.length} done${mine ? ` · <em>${mine} for you</em>` : ''}</span></button>
-      <button class="linkbtn" type="button" data-ov-toggle>Show overview</button>${nowRunning(true)}${clear ? `<div class="ov-foot">${clear}</div>` : ''}</section>`;
+      <button class="linkbtn" type="button" data-ov-toggle>Show overview</button>${clear ? `<div class="ov-foot">${clear}</div>` : ''}</section>`;
   }
-  return `<section class="overview" aria-label="Progress overview">${nowRunning()}
+  return `<section class="overview" aria-label="Progress overview">
     <div class="ov-status"><div class="donut${picked ? ' picked' : ''}" data-mid="${esc(mid[0])}|${esc(mid[1])}">${ring(ringParts(all), 148, 18, { pick: true })}<div class="mid"><b>${mid[0]}</b><span>${mid[1]}</span></div></div>
       <ul class="legend">${legend}</ul></div>
     ${waves ? `<div class="ov-waves">${waves}</div>` : ''}<div class="ov-foot">${clear}<button class="linkbtn" type="button" data-ov-toggle aria-expanded="true">Fold overview</button></div></section>`;
@@ -1331,6 +1342,7 @@ function weeklyReport() {
 }
 function render() {
   renderCounters();
+  renderAgents();
   $('#grouping').hidden = state.view !== 'table';
   document.querySelectorAll('#grouping button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.group === state.group)));
   const v = $('#view');
@@ -2083,7 +2095,7 @@ async function reopenDecision(id) {
   } catch (err) { toast(err.message || 'Could not reopen decision'); }
 }
 
-$('#view').addEventListener('click', (e) => {
+const onViewClick = (e) => {
   const actBtn = e.target.closest('[data-act][data-dec]');
   if (actBtn) {
     e.preventDefault();
@@ -2122,7 +2134,9 @@ $('#view').addEventListener('click', (e) => {
   const j = e.target.closest('[data-jump]');
   if (j) { document.getElementById('col-' + j.dataset.jump)?.closest('.col').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', inline: 'center', block: 'nearest' }); return; }
   const el = e.target.closest('[data-id]'); if (el) openPanel(el.dataset.id);
-});
+};
+$('#view').addEventListener('click', onViewClick);
+$('#agents').addEventListener('click', onViewClick);
 // Hovering an arc or a legend row shows that status in the middle of the donut and lights its pair.
 function hotStatus(k) {
   const d = $('#view .donut'); if (!d) return;
@@ -2169,6 +2183,7 @@ function syncQueueView() {
   const sig = `${state.metaSeen}|${pcOnline()}|${running}|${limitedSince('claude') ? 1 : 0}${limitedSince('cursor') ? 1 : 0}`;
   if (sig === queueSig) return;
   queueSig = sig;
+  renderAgents();
   if (state.view !== 'decisions') render();
 }
 window.addEventListener('board:meta', (e) => {
@@ -2177,6 +2192,7 @@ window.addEventListener('board:meta', (e) => {
   if (e.detail?.serverNow) state.skew = e.detail.serverNow - Date.now();
   state.metaSeen = true;
   renderPcStatus();
+  renderAgents();
   syncQueueView();
   patchNow();
   // Do not rebuild the whole panel (that resets scroll on the phone).
