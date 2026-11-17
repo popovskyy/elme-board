@@ -1,6 +1,6 @@
 # Elme Board (app)
 
-Roman's private board for the Elme Hyvä port: Next.js app for Vercel + a runner on his PC that starts Claude or Cursor on a ticket. Full brief: `../BOARD-BRIEF.md`. Spec: `../board-design.md`.
+Roman's private board for the Elme Hyvä port: Next.js app for Vercel + a runner on his PC that starts Claude on a ticket (Cursor is switched off until its subscription is bought: `ENABLED_RUNNERS` in `lib/logic.mjs`). Full brief: `../BOARD-BRIEF.md`. Spec: `../board-design.md`.
 
 This folder is its own git repo. It lives inside `elme-hyva/.roadmap/`, which the elme-hyva repo ignores. Never commit any of it to elme-hyva.
 

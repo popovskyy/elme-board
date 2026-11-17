@@ -6,7 +6,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { queueCompare, agentKit, kitSettings, kitPrompt } from '../lib/logic.mjs';
+import { queueCompare, agentKit, kitSettings, kitPrompt, ENABLED_RUNNERS, otherRunner } from '../lib/logic.mjs';
 import { isLimit, formatLog } from './prompt.mjs';
 
 loadEnv(new URL('../.env.local', import.meta.url));
@@ -22,7 +22,6 @@ const MAX_RUN_MS = Number(process.env.MAX_RUN_MINUTES || 90) * 60_000;
 const AUTO_SWITCH = process.env.AUTO_SWITCH_ON_LIMIT !== '0';
 const LIMIT_COOLDOWN_MS = Number(process.env.LIMIT_COOLDOWN_MINUTES || 60) * 60_000;
 const limitedAt = { claude: 0, cursor: 0 };
-const OTHER = { claude: 'cursor', cursor: 'claude' };
 const NAME = { claude: 'Claude', cursor: 'Cursor' };
 // Model for headless Claude runs unless CLAUDE_FLAGS names one. Sonnet by default: the Claude Code default model
 // used up the plan's limit on routine tickets. CLAUDE_MODEL= (empty) leaves the choice to Claude Code.
@@ -70,20 +69,26 @@ async function loop() {
       else {
         // One queue across both tools, in the order the board shows (Run next first, then oldest).
         const picks = [];
-        for (const runner of ['claude', 'cursor']) {
+        for (const runner of ENABLED_RUNNERS) {
           const { ticket } = await api(`/api/runner/next?runner=${runner}`);
           if (ticket) picks.push([ticket, runner]);
         }
         picks.sort((a, b) => queueCompare(a[0], b[0]));
         if (picks.length) {
           let [ticket, runner] = picks[0];
-          if (AUTO_SWITCH && limited(runner) && !limited(OTHER[runner])) {
+          const other = otherRunner(runner);
+          if (AUTO_SWITCH && other && limited(runner) && !limited(other)) {
             // This tool hit its limit a moment ago: do not burn a start on it.
-            ticket = await patchTicket(ticket, { runner: OTHER[runner] });
-            await cli(['log', ticket.id, '--who', 'watcher', '--kind', 'log', '--text', `${NAME[runner]} hit its usage limit recently, so the PC runs this ticket with ${NAME[OTHER[runner]]}.`]).catch(warn);
-            runner = OTHER[runner];
+            ticket = await patchTicket(ticket, { runner: other });
+            await cli(['log', ticket.id, '--who', 'watcher', '--kind', 'log', '--text', `${NAME[runner]} hit its usage limit recently, so the PC runs this ticket with ${NAME[other]}.`]).catch(warn);
+            runner = other;
           }
-          await start(ticket, runner);
+          // The only tool is resting after its usage limit: the queue waits instead of failing one ticket per poll.
+          if (!(limited(runner) && !other)) {
+            // A ticket saved for a tool that is switched off runs with this one; `take` wants the two to agree.
+            if ((ticket.runner || 'claude') !== runner) ticket = await patchTicket(ticket, { runner });
+            await start(ticket, runner);
+          }
         }
       }
     } else if (!busy.merging) {
@@ -313,7 +318,7 @@ async function startInner(t, runner) {
       else {
         const limit = isLimit(tail);
         const code = timedOut ? 'timeout' : stopped ? 'stopped' : limit ? 'limit' : 'no_report';
-        const lead = limit ? `${runner === 'cursor' ? 'Cursor' : 'Claude'} hit its usage limit. Switch the runner and rerun.` : why;
+        const lead = limit ? `${runner === 'cursor' ? 'Cursor' : 'Claude'} hit its usage limit.${otherRunner(runner) ? ' Switch the runner and rerun.' : ' Rerun it when the limit resets.'}` : why;
         // Builder work in the tree would block the next run as "dirty" and get stashed away.
         // Commit it on the ticket branch so the rerun (same or other tool) continues from it.
         const sha = (role === 'fe' || role === 'be') ? checkpoint(t.id, branch, code) : null;
@@ -326,10 +331,11 @@ async function startInner(t, runner) {
         if (limit) limitedAt[runner] = Date.now();
         // The board shows the tool as resting while the cooldown lasts.
         if (limit) await api(`/api/runs/${run.id}`, { method: 'PATCH', body: { limit: true } }).catch(warn);
-        if (limit && AUTO_SWITCH && !limited(OTHER[runner]) && now) {
+        const other = otherRunner(runner);
+        if (limit && AUTO_SWITCH && other && !limited(other) && now) {
           // Ticket stays queued with the same agent role; only the tool changes. The next loop starts it.
-          await api(`/api/tickets/${t.id}`).then((fresh) => patchTicket(fresh, { runner: OTHER[runner] })).catch(warn);
-          await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text', `${NAME[runner]} hit its usage limit. The PC continues this ticket with ${NAME[OTHER[runner]]}.${saved}`]).catch(warn);
+          await api(`/api/tickets/${t.id}`).then((fresh) => patchTicket(fresh, { runner: other })).catch(warn);
+          await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text', `${NAME[runner]} hit its usage limit. The PC continues this ticket with ${NAME[other]}.${saved}`]).catch(warn);
         } else {
           await cli(['block', t.id, '--who', 'watcher', '--code', code, '--question', `${lead}${saved} Last lines:\n\n${tail}`]).catch(warn);
         }

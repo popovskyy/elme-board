@@ -14,3 +14,6 @@ export function reopen(ticket: Ticket, holder: 'fe' | 'be' | 'qa'): Patch;
 export function pickable(tickets: Ticket[]): Ticket | null;
 export function requestSeo(ticket: Ticket, then?: Patch | null): Patch;
 export function seoDone(ticket: Ticket): Patch;
+export const ENABLED_RUNNERS: ('claude' | 'cursor')[];
+export function runnerOf(ticket?: Partial<Ticket> | null): 'claude' | 'cursor';
+export function otherRunner(runner: string): 'claude' | 'cursor' | null;

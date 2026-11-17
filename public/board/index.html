@@ -247,7 +247,7 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
   .wcard:active { transform: scale(0.97); }
 }
 @property --mark-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-/* Agents: Claude and Cursor in the header, a small chip each. The mark's frame and a badge say what the tool is doing. */
+/* Agents: the tools in ENABLED_RUNNERS in the header, a small chip each. The mark's frame and a badge say what the tool is doing. */
 .agents { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .agent { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; padding: 5px 14px 5px 6px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .agent.is-working { background: color-mix(in srgb, var(--st-progress) 16%, var(--surface)); border-color: color-mix(in srgb, var(--rg-progress) 50%, var(--line)); }
@@ -530,7 +530,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   .tools { display: none; }
   body.show-tools .tools { display: grid; gap: 10px; width: 100%; }
   .counters { order: 3; }
-  .agents { order: 2; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .agents { order: 2; width: 100%; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   .agent { padding: 5px 8px 5px 5px; gap: 8px; }
   .agent .nowmain { max-width: none; }
   .aname b { font-size: 16px; }
@@ -641,7 +641,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
   <div class="titlerow">
     <h1>Elme <span>Board</span></h1>
     <span class="sub">Hyvä port roadmap</span>
-    <div class="agents" id="agents" aria-label="Claude and Cursor"></div>
+    <div class="agents" id="agents" aria-label="Agents"></div>
     <div class="pc-status" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">Checking PC…</span></div>
     <button class="export-btn" id="digest" type="button" aria-label="Daily update"><svg class="ico" aria-hidden="true"><use href="#i-note"/></svg><span>Update</span></button>
     <button class="export-btn" id="export" type="button" aria-label="Export for QA"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg><span>Export</span></button>
@@ -685,7 +685,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
 <div class="toast" id="toast" hidden role="status"></div>
 
 <script type="module">
-import { agentKit, KIT_PLUGINS, KIT_SKILLS, assign, block, answer, done, reopen, requestIdeas, buildFromIdeas, devHolder, requestSeo, queued, runNext, cancelQueue, archive, unarchive, editTicket } from '/board/logic.js';
+import { ENABLED_RUNNERS, runnerOf, otherRunner, agentKit, KIT_PLUGINS, KIT_SKILLS, assign, block, answer, done, reopen, requestIdeas, buildFromIdeas, devHolder, requestSeo, queued, runNext, cancelQueue, archive, unarchive, editTicket } from '/board/logic.js';
 
 const STATUS = {
   todo: { label: 'To do', c: '--st-todo' },
@@ -720,8 +720,8 @@ const FOCUS = {
   mine: (t) => t.status === 'review' || t.status === 'blocked',
   ready: (t) => isReady(t),
   agents: (t) => t.waiting,
-  claude: (t) => t.waiting && (t.runner || 'claude') === 'claude',
-  cursor: (t) => t.waiting && t.runner === 'cursor',
+  claude: (t) => t.waiting && runnerOf(t) === 'claude',
+  cursor: (t) => t.waiting && runnerOf(t) === 'cursor',
   done: (t) => t.status === 'done',
 };
 /** Plan stages in order: [number, name]. The name comes from the first ticket of the stage that has one,
@@ -776,10 +776,10 @@ function isReady(t) {
   const need = t.kind === 'UX' ? (t.extends || []) : (t.deps || []);
   return need.every(depDone) && (t.decisions || []).every((d) => state.decisions.get(d)?.status === 'decided');
 }
-function runnerLabel(t) { return (t.runner || 'claude') === 'cursor' ? 'Cursor' : 'Claude'; }
+function runnerLabel(t) { return runnerOf(t) === 'cursor' ? 'Cursor' : 'Claude'; }
 function holderTool(t) {
   const h = HOLDER[t.holder]?.[0] || '?';
-  return `<span class="chip tool">${ico((t.runner || 'claude') === 'cursor' ? 'cursor' : 'spark')}${esc(h)} · ${esc(runnerLabel(t))}</span>`;
+  return `<span class="chip tool">${ico(runnerOf(t) === 'cursor' ? 'cursor' : 'spark')}${esc(h)} · ${esc(runnerLabel(t))}</span>`;
 }
 function badges(t) {
   if (t.waiting) return `<span class="chip work">${ico('play')}${esc(HOLDER[t.holder]?.[2] || 'Agent')} · ${esc(runnerLabel(t))}</span>`;
@@ -821,7 +821,7 @@ function renderPcStatus() {
 }
 // UI choice wins over the ticket's saved runner (seed defaults everything to claude).
 function preferredRunner() {
-  return state.pickRunner || 'claude';
+  return ENABLED_RUNNERS.includes(state.pickRunner) ? state.pickRunner : ENABLED_RUNNERS[0];
 }
 /** Agent kit: plugins and skills for the next run of this ticket. Saved as soon as a box changes. */
 function kitBox(t) {
@@ -838,6 +838,8 @@ function kitBox(t) {
 }
 function runnerSeg(t = null) {
   const cur = preferredRunner();
+  // One tool on: nothing to choose, only the agent kit.
+  if (ENABLED_RUNNERS.length < 2) return t ? kitBox(t) : '';
   return `<div class="runner-pick"><div class="label">Run this ticket with</div><div class="seg" role="group" aria-label="Run with" id="runner-seg">
     <button type="button" data-runner="claude" aria-pressed="${cur === 'claude'}">${ico('spark')}Claude</button>
     <button type="button" data-runner="cursor" aria-pressed="${cur === 'cursor'}">${ico('cursor')}Cursor</button>
@@ -979,11 +981,11 @@ let agentsHtml = '';
 function renderAgents() {
   const el = $('#agents'); if (!el) return;
   const q = queued(live());
-  const html = ['claude', 'cursor'].map((tool) => {
+  const html = ENABLED_RUNNERS.map((tool) => {
     const name = tool === 'cursor' ? 'Cursor' : 'Claude';
     const run = Object.values(state.runs || {}).find((r) => r.runner === tool && (r.status === 'running' || r.status === 'queued') && state.tickets.has(r.ticketId));
-    const mineQ = q.filter((t) => (t.runner || 'claude') === tool && !activeRunFor(t.id));
-    const asks = live().filter((t) => t.status === 'blocked' && (t.runner || 'claude') === tool).sort((x, y) => (x.updatedAt || 0) - (y.updatedAt || 0));
+    const mineQ = q.filter((t) => runnerOf(t) === tool && !activeRunFor(t.id));
+    const asks = live().filter((t) => t.status === 'blocked' && runnerOf(t) === tool).sort((x, y) => (x.updatedAt || 0) - (y.updatedAt || 0));
     const off = state.metaSeen && !pcOnline();
     const rest = limitedSince(tool);
     const st = run ? 'working' : off ? 'off' : rest ? 'limit' : mineQ.length ? 'queued' : asks.length ? 'blocked' : 'idle';
@@ -1105,14 +1107,15 @@ function renderCounters() {
   const mine = n((t) => t.status === 'review' || t.status === 'blocked');
   const chipIcon = { mine: 'bell', ready: 'check', agents: 'play', claude: 'spark', cursor: 'cursor', done: 'flag' };
   const chip = (key, num, label, cls = '') => `<button class="counter${cls}" data-focus="${key}" aria-pressed="${state.focus === key}">${ico(chipIcon[key] || 'list')}<b>${num}</b><span>${label}</span></button>`;
-  const withClaude = n((t) => t.waiting && (t.runner || 'claude') === 'claude');
-  const withCursor = n((t) => t.waiting && t.runner === 'cursor');
+  const both = ENABLED_RUNNERS.length > 1;
+  const withClaude = n((t) => t.waiting && runnerOf(t) === 'claude');
+  const withCursor = n((t) => t.waiting && runnerOf(t) === 'cursor');
   $('#counters').innerHTML = [
     chip('mine', mine, 'waiting for you', mine ? ' alert' : ''),
     chip('ready', n(isReady), 'ready to start'),
     chip('agents', n((t) => t.waiting), 'with agents'),
-    chip('claude', withClaude, 'with Claude'),
-    chip('cursor', withCursor, 'with Cursor'),
+    both ? chip('claude', withClaude, 'with Claude') : '',
+    both && ENABLED_RUNNERS.includes('cursor') ? chip('cursor', withCursor, 'with Cursor') : '',
     chip('done', n((t) => t.status === 'done'), `of ${all.length} done`),
     `<button class="counter" data-goto="decisions">${ico('list')}<b>${openDec}</b><span>open decisions</span></button>`,
   ].join('');
@@ -1499,19 +1502,19 @@ function actions(t) {
     const q = latest('question');
     const fromPc = q && q.who === 'watcher';
     const code = q?.code || (fromPc && /conflicts with/.test(q.text) ? 'conflict' : fromPc ? 'error' : 'agent');
-    const other = preferredRunner() === 'cursor' ? 'claude' : 'cursor';
+    const other = otherRunner(preferredRunner());
     const otherName = other === 'cursor' ? 'Cursor' : 'Claude';
     const title = code === 'agent' ? 'Question for you' : code === 'cancelled' ? 'Taken off the queue' : 'Your PC needs a decision';
     const qHtml = q ? `<div class="question"><h4>${title}</h4><div class="prose">${md(q.text)}</div></div>` : '';
     const rerun = (label = 'Rerun') => `<button class="btn" data-act="rerun" data-h="${h}">${ico('rerun')}${label}</button>`;
-    const sw = `<button class="btn" data-act="switch" data-h="${h}" data-runner="${other}">${ico(other === 'cursor' ? 'cursor' : 'spark')}Run with ${otherName}</button>`;
+    const sw = other ? `<button class="btn" data-act="switch" data-h="${h}" data-runner="${other}">${ico(other === 'cursor' ? 'cursor' : 'spark')}Run with ${otherName}</button>` : '';
     const buttons = {
       conflict: `<button class="btn primary" data-act="fresh" data-h="${h}">${ico('rerun')}Start over from main</button><button class="btn" data-act="resolve" data-h="${h}">${ico('play')}Agent resolves the conflict</button>`,
       dirty: `<button class="btn primary" data-act="stash" data-h="${h}">${ico('play')}Stash the changes and run</button>${rerun('Rerun (I cleaned up)')}`,
       deps: `<button class="btn primary" data-act="skip" data-h="${h}">${ico('play')}Run anyway</button>${rerun('Rerun (deps are done)')}`,
       decisions: `<button class="btn primary" data-act="skip" data-h="${h}">${ico('play')}Run anyway</button><button class="btn" data-act="goto-decisions">${ico('list')}Open decisions</button>${rerun()}`,
       docker: `<button class="btn primary" data-act="rerun" data-h="${h}">${ico('rerun')}Try again (the runner starts Docker)</button>`,
-      limit: `<button class="btn primary" data-act="switch" data-h="${h}" data-runner="${other}">${ico(other === 'cursor' ? 'cursor' : 'spark')}Run with ${otherName}</button>${rerun('Rerun with the same tool')}`,
+      limit: other ? `<button class="btn primary" data-act="switch" data-h="${h}" data-runner="${other}">${ico(other === 'cursor' ? 'cursor' : 'spark')}Run with ${otherName}</button>${rerun('Rerun with the same tool')}` : rerun('Rerun when the limit resets'),
       timeout: `${rerun()}${sw}`, stopped: `${rerun()}${sw}`, no_report: `${rerun()}${sw}`, error: `${rerun()}${sw}`,
       cancelled: `${rerun('Queue it again')}${sw}`,
     };
@@ -1724,7 +1727,7 @@ function openTicketForm(t = null) {
       <label>Title<input id="nt-title" required maxlength="160" value="${esc(v.title)}" placeholder="e.g. Custom select with search"></label>
       <div class="row2">
         <label>Kind<select id="nt-kind"${kindLocked ? ' disabled title="Kind changes only before work starts"' : ''}>${['FE', 'BE', 'UX'].map((k) => `<option${k === v.kind ? ' selected' : ''}>${k}</option>`).join('')}</select></label>
-        ${editing ? '<span></span>' : `<label>Run with<select id="nt-runner"><option value="claude"${preferredRunner() === 'claude' ? ' selected' : ''}>Claude</option><option value="cursor"${preferredRunner() === 'cursor' ? ' selected' : ''}>Cursor</option></select></label>`}
+        ${editing ? '<span></span>' : ENABLED_RUNNERS.length < 2 ? `<span><input type="hidden" id="nt-runner" value="${ENABLED_RUNNERS[0]}"></span>` : `<label>Run with<select id="nt-runner">${ENABLED_RUNNERS.map((r) => `<option value="${r}"${preferredRunner() === r ? ' selected' : ''}>${r === 'cursor' ? 'Cursor' : 'Claude'}</option>`).join('')}</select></label>`}
       </div>
       <div class="row2">
         <label>Plan stage<select id="nt-wave">${waves.map(([w, n]) => `<option value="${w}"${w === v.wave ? ' selected' : ''}>${w} · ${esc(n)}</option>`).join('')}</select></label>
@@ -1975,7 +1978,7 @@ function openPanel(id) {
   if (location.hash !== `#${id}`) history.pushState(null, '', `#${id}`);
   const t0 = state.tickets.get(id);
   // Ticket's saved runner wins when opening; otherwise keep last UI choice.
-  if (t0?.runner === 'claude' || t0?.runner === 'cursor') state.pickRunner = t0.runner;
+  if (ENABLED_RUNNERS.includes(t0?.runner)) state.pickRunner = t0.runner;
   $('#panel').hidden = false; $('#scrim').hidden = false;
   document.documentElement.classList.add('panel-open');
   $('#panel').scrollTop = 0;
