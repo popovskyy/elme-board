@@ -246,6 +246,7 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
   .wcard { transition: border-color 160ms ease, background-color 160ms ease, transform 140ms var(--ease-out); }
   .wcard:active { transform: scale(0.97); }
 }
+@property --mark-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 /* Agents: one card per tool with its mark; a ring and a badge say what the tool is doing. */
 .agents { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
 .overview.mini .agents { flex: 1 1 100%; }
@@ -273,9 +274,10 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .bot-cursor { color: #FFFFFF; background: #1B1B1B; border-color: #1B1B1B; }
 .bot svg { width: 34px; height: 34px; display: block; }
 /* ring: what the tool is doing */
-.aring { position: absolute; inset: -5px; border-radius: 20px; border: 2px solid transparent; pointer-events: none; }
+/* The frame is the tile's own outline: same shape, same size, 3px thick. */
+.aring { position: absolute; inset: -1px; border-radius: 16px; border: 3px solid transparent; pointer-events: none; }
 .is-working .aring { border-color: var(--rg-progress); }
-.is-queued .aring { border: 2px dashed var(--rg-qa); }
+.is-queued .aring { border: 3px dashed var(--rg-qa); }
 .is-blocked .aring, .is-limit .aring, .sad .aring { border-color: var(--rg-blocked); }
 .cheer .aring { border-color: var(--rg-done); }
 .is-off .bot { filter: grayscale(1); opacity: .5; }
@@ -293,14 +295,16 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 @media (prefers-reduced-motion: no-preference) {
   .agent .nowline.fresh { animation: line-fresh 1.6s ease-out; }
   @keyframes line-fresh { from { color: var(--fg); background: color-mix(in srgb, var(--st-progress) 45%, transparent); } }
-  .is-working .aring { border-color: color-mix(in srgb, var(--rg-progress) 30%, transparent); border-top-color: var(--rg-progress); border-radius: 50%; inset: -7px; animation: mark-spin 1.1s linear infinite; }
+  /* While a run goes, a bright stretch travels along the frame; the frame itself does not turn. */
+  .is-working .aring { border: 0; padding: 3px; background: conic-gradient(from var(--mark-a), var(--rg-progress) 0 28%, color-mix(in srgb, var(--rg-progress) 28%, transparent) 28% 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: mark-spin 1.4s linear infinite; }
   .is-working .bot-claude svg { animation: mark-turn 6s linear infinite; }
   .is-working .bot-cursor svg { animation: mark-breathe 1.6s ease-in-out infinite; }
   .is-queued .aring { animation: pulse 1.6s ease-in-out infinite; }
   .is-blocked .amark { animation: pulse 1.4s ease-in-out infinite; }
   .bot.hit svg { animation: mark-hit 360ms var(--ease-out); }
   .cheer .bot { animation: mark-hop 700ms var(--ease-out) 3; }
-  @keyframes mark-spin { to { transform: rotate(360deg); } }
+  @keyframes mark-spin { to { --mark-a: 360deg; } }
   @keyframes mark-turn { to { transform: rotate(360deg); } }
   @keyframes mark-breathe { 50% { transform: scale(.88); } }
   @keyframes mark-hit { 40% { transform: scale(1.25); } }
