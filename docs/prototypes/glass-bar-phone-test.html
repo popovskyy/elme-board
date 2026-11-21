@@ -1,0 +1,228 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Liquid Glass Phone Test</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Karla:wght@400;700&display=swap">
+<style>
+  /* Layout: the real screen is the prototype. A slim top bar with the look switch, scrolling content, the glass bar fixed at the bottom. */
+  :root {
+    --bg: #EEECE4; --surface: #FFFFFF; --ink: #2F2E2A; --muted: #666A61; --line: #DDDBD2;
+    --accent: #4B5A41; --on-accent: #FFFFFF; --top: #F5F4EF;
+    --glass: rgb(255 255 255 / .5); --glass-edge: rgb(255 255 255 / .75); --glass-solid: #FBFAF6;
+    --shadow: 0 10px 30px rgb(30 30 20 / .22);
+    --font-display: "DM Serif Display", Georgia, "Times New Roman", serif;
+    --font-body: Karla, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #20231E; --surface: #252822; --ink: #ECEBE4; --muted: #A5A99E; --line: #3A3E35; --accent: #B3C6A0; --on-accent: #1A1C18; --top: #1A1C18;
+      --glass: rgb(38 41 35 / .5); --glass-edge: rgb(255 255 255 / .22); --glass-solid: #2B2E27; --shadow: 0 10px 30px rgb(0 0 0 / .55);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #20231E; --surface: #252822; --ink: #ECEBE4; --muted: #A5A99E; --line: #3A3E35; --accent: #B3C6A0; --on-accent: #1A1C18; --top: #1A1C18;
+    --glass: rgb(38 41 35 / .5); --glass-edge: rgb(255 255 255 / .22); --glass-solid: #2B2E27; --shadow: 0 10px 30px rgb(0 0 0 / .55);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font: 400 16px/1.5 var(--font-body); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 20; background: var(--top); }
+
+  .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); background: var(--top); border-bottom: 1px solid var(--line); }
+  .top h1 { margin: 0; font: 400 22px/1.2 var(--font-display); }
+  .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; margin-top: 8px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .seg button { min-height: 44px; padding: 4px 6px; border: 0; border-radius: 9px; background: none; color: var(--ink); font: 700 14px/1.2 var(--font-body); cursor: pointer; }
+  .seg button small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+  .seg button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+  .seg button[aria-checked="true"] small { color: inherit; opacity: .85; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hint { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+
+  main { padding-block: 16px 140px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .page-title { margin: 0 0 12px; font: 400 28px/1.15 var(--font-display); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .tile { min-width: 0; }
+  .tile i { display: block; aspect-ratio: 1 / .9; border-radius: 10px; }
+  .tile b { display: block; margin-top: 6px; font-weight: 700; font-size: 14px; line-height: 1.25; }
+  .tile span { display: block; font-size: 12px; color: var(--muted); }
+  .p1 { background: linear-gradient(135deg, #D97757, #8C3B1F); }
+  .p2 { background: repeating-linear-gradient(45deg, #55644A 0 14px, #ADBBA1 14px 28px); }
+  .p3 { background: radial-gradient(circle at 30% 30%, #EBCB7B, #9A6B12); }
+  .p4 { background: conic-gradient(from 20deg, #34495E, #A3B8C9, #34495E); }
+  .p5 { background: repeating-linear-gradient(90deg, #232323 0 9px, #F5F4EF 9px 18px); }
+  .p6 { background: linear-gradient(0deg, #7A2F3F, #E9A99A); }
+  .p7 { background: conic-gradient(#2F2E2A 25%, #E9E4D6 0 50%, #2F2E2A 0 75%, #E9E4D6 0) 0 0 / 36px 36px; }
+  .p8 { background: radial-gradient(circle at 70% 25%, #CFE3B8, #3E5B33 60%, #1E2D1A); }
+
+  /* the bar: a glass plate and a lens, side by side (a lens inside the plate cannot see the page behind it) */
+  .nav { position: fixed; z-index: 10; left: 0; right: 0; margin-inline: auto; width: min(calc(100% - 32px), 420px); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); height: 64px; display: grid; grid-template-columns: repeat(5, 1fr);
+         touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  .plate { position: absolute; inset: 0; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow), inset 0 1px 0 var(--glass-edge);
+           -webkit-backdrop-filter: blur(8px) saturate(1.7); backdrop-filter: blur(8px) saturate(1.7); }
+  .lens { position: absolute; z-index: 1; top: -7px; bottom: -7px; left: 20%; width: 20%; border-radius: 999px; pointer-events: none; background: rgb(255 255 255 / .18);
+          box-shadow: inset 0 0 0 1px rgb(255 255 255 / .75), inset 0 3px 7px rgb(255 255 255 / .85), inset 0 -4px 9px rgb(0 0 0 / .10), 0 8px 20px rgb(0 0 0 / .20);
+          -webkit-backdrop-filter: blur(1.5px) saturate(1.9) brightness(1.1); backdrop-filter: blur(1.5px) saturate(1.9) brightness(1.1);
+          transition: left 520ms cubic-bezier(.3, 1.45, .5, 1), transform 240ms cubic-bezier(.3, 1.4, .5, 1); }
+  .lens.drag { transition: transform 240ms cubic-bezier(.3, 1.4, .5, 1); }
+  .lens.pressed { transform: scale(1.16); }
+  .lens::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px; opacity: .7;
+                 background: conic-gradient(from 200deg, #FF5EA8, #FFD24A, #5AFFB0, #55A8FF, #B05AFF, #FF5EA8);
+                 -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+                 mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  .tab { position: relative; z-index: 2; display: grid; place-items: center; height: 100%; padding: 0; background: none; border: 0; color: var(--ink); border-radius: 999px; }
+  .tab svg { width: 27px; height: 27px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 240ms cubic-bezier(.3, 1.4, .5, 1); }
+  .tab[aria-current="page"] svg { transform: scale(1.1); }
+  .tab .solid { fill: currentColor; }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+
+  body[data-look="refract"] .lens { -webkit-backdrop-filter: url(#refract); backdrop-filter: url(#refract) saturate(1.6) brightness(1.08); }
+  body[data-look="refract"] .plate { -webkit-backdrop-filter: blur(3px) saturate(1.5); backdrop-filter: blur(3px) saturate(1.5); }
+  body[data-look="solid"] .plate { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body[data-look="solid"] .lens { background: color-mix(in srgb, var(--ink) 10%, var(--glass-solid)); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body[data-look="solid"] .lens::after { display: none; }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .plate { background: var(--glass-solid); } .lens { background: color-mix(in srgb, var(--ink) 10%, var(--glass-solid)); } .lens::after { display: none; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .plate { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .lens { background: color-mix(in srgb, var(--ink) 10%, var(--glass-solid)); -webkit-backdrop-filter: none; backdrop-filter: none; } .lens::after { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .lens, .lens.drag, .tab svg { transition: none; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="refract" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feImage id="fe-map" href="" x="0" y="0" width="70" height="78" preserveAspectRatio="none" result="map"/>
+    <feDisplacementMap id="fe-disp" in="SourceGraphic" in2="map" scale="52" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<header class="top">
+  <h1>Liquid glass bar</h1>
+  <div class="seg" role="radiogroup" aria-label="Look" id="looks">
+    <button type="button" role="radio" aria-checked="true" data-look="frost">Frosted<small>every browser</small></button>
+    <button type="button" role="radio" aria-checked="false" data-look="refract">Refraction<small>Chrome, Edge</small></button>
+    <button type="button" role="radio" aria-checked="false" data-look="solid">Solid<small>fallback</small></button>
+  </div>
+  <p class="hint" id="hint" aria-live="polite">Press the bar and drag the lens. Scroll to see the glass over content.</p>
+</header>
+
+<main>
+  <h2 class="page-title" id="page-title">My shopping lists</h2>
+  <div class="tiles" id="tiles"></div>
+</main>
+
+<nav class="nav" id="nav" aria-label="Main">
+  <i class="plate"></i>
+  <span class="lens" id="lens"></span>
+  <button class="tab" type="button" aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20H4z"/></svg></button>
+  <button class="tab" type="button" aria-label="Shopping lists"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10C19.5 15.4 12 20 12 20z"/></svg></button>
+  <button class="tab" type="button" aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></svg></button>
+  <button class="tab" type="button" aria-label="Account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle class="solid" cx="12" cy="8" r="3.6"/><path class="solid" d="M5 20c0-4 3-6 7-6s7 2 7 6z"/></svg></button>
+  <button class="tab" type="button" aria-label="Quick Order cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6zM9 8V6.5a3 3 0 0 1 6 0V8"/></svg></button>
+</nav>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const nav = $('#nav'), lens = $('#lens');
+  const tabs = [...nav.querySelectorAll('.tab')];
+  const TILES = [
+    ['p1', 'Riley Apt sofa', 'Made to order'], ['p2', 'Fern Lush Boston', 'In stock'], ['p3', 'Knox planter', 'Set of 2'], ['p4', 'Muse Flax', '31 fabrics'],
+    ['p5', 'Stripe rug', 'In stock'], ['p6', 'Avon Honey', 'Made to order'], ['p7', 'Check cushion', 'MOQ 4'], ['p8', 'Olive tree 180 cm', 'In stock'],
+    ['p3', 'Brass candle holder', 'MOQ 6'], ['p1', 'Terracotta pot', 'In stock'], ['p2', 'Linen throw', 'In stock'], ['p4', 'Glass vase', 'MOQ 12'],
+    ['p5', 'Jute runner', 'In stock'], ['p6', 'Rose bouquet', 'MOQ 6'], ['p7', 'Tile tray', 'In stock'], ['p8', 'Fiddle leaf fig', 'In stock'],
+  ];
+  const TITLES = ['New this week', 'My shopping lists', 'Search', 'Trade account', 'Quick Order cart'];
+  let current = 1;
+
+  function render(i) {
+    const rot = TILES.slice(i * 3).concat(TILES.slice(0, i * 3));
+    $('#page-title').textContent = TITLES[i];
+    $('#tiles').innerHTML = rot.map(([c, n, s]) => `<div class="tile"><i class="${c}"></i><b>${n}</b><span>${s}</span></div>`).join('');
+  }
+  function select(i) {
+    i = Math.max(0, Math.min(4, i));
+    lens.style.left = `${i * 20}%`;
+    tabs.forEach((t, k) => k === i ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
+    if (i !== current || !$('#tiles').children.length) render(i);
+    current = i;
+  }
+
+  // press anywhere on the bar: the lens grows and follows the finger; on release it settles on the nearest tab
+  let press = null;
+  const moveTo = (clientX) => {
+    const w = press.rect.width / 5;
+    const x = Math.min(Math.max(clientX - press.rect.left - w / 2, 0), press.rect.width - w);
+    lens.style.left = `${x / press.rect.width * 100}%`;
+  };
+  nav.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    press = { rect: nav.getBoundingClientRect() };
+    try { nav.setPointerCapture(e.pointerId); } catch (err) { /* older viewers */ }
+    lens.classList.add('pressed', 'drag');
+    moveTo(e.clientX);
+  });
+  nav.addEventListener('pointermove', (e) => { if (press) moveTo(e.clientX); });
+  const release = () => {
+    if (!press) return;
+    const w = press.rect.width / 5;
+    const i = Math.round((parseFloat(lens.style.left) / 100 * press.rect.width) / w);
+    press = null;
+    lens.classList.remove('pressed', 'drag');
+    select(i);
+  };
+  nav.addEventListener('pointerup', release);
+  nav.addEventListener('pointercancel', release);
+  nav.addEventListener('click', (e) => { const b = e.target.closest('.tab'); if (b && e.detail === 0) select(tabs.indexOf(b)); });
+  nav.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const k = Math.max(0, Math.min(4, tabs.indexOf(document.activeElement) + (e.key === 'ArrowRight' ? 1 : -1))); tabs[k].focus(); select(k); e.preventDefault(); }
+  });
+
+  // refraction: a displacement map the size of the lens. The rim pushes the picture outward, the middle stays flat.
+  function buildMap() {
+    const w = Math.round(lens.offsetWidth), h = Math.round(lens.offsetHeight);
+    if (!w || !h) return;
+    const R = Math.min(w, h) / 2, BEZEL = Math.min(30, R * .85);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); const img = g.createImageData(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const cx = Math.min(Math.max(x + .5, R), w - R), cy = Math.min(Math.max(y + .5, R), h - R);
+      const dx = x + .5 - cx, dy = y + .5 - cy, dist = Math.hypot(dx, dy);
+      const inside = R - dist;
+      const m = inside <= 0 ? 0 : Math.pow(Math.max(0, 1 - inside / BEZEL), 1.8);
+      const nx = dist ? dx / dist : 0, ny = dist ? dy / dist : 0;
+      const k = (y * w + x) * 4;
+      img.data[k] = 128 - nx * m * 127; img.data[k + 1] = 128 - ny * m * 127; img.data[k + 2] = 128; img.data[k + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    const fe = $('#fe-map');
+    fe.setAttribute('width', w); fe.setAttribute('height', h); fe.setAttribute('href', c.toDataURL());
+    $('#fe-disp').setAttribute('scale', String(Math.round(R * 1.7)));
+  }
+
+  const looks = [...document.querySelectorAll('#looks button')];
+  const ua = navigator.userAgent;
+  const chromium = /Chrom(e|ium)\//.test(ua) && !/CriOS|FxiOS|iPhone|iPad/.test(ua);
+  function setLook(name) {
+    document.body.dataset.look = name;
+    looks.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.look === name)));
+    $('#hint').textContent = name === 'refract' && !chromium
+      ? 'This browser does not bend the page under the lens, so it shows the frosted look. Chrome or Edge shows the refraction.'
+      : 'Press the bar and drag the lens. Scroll to see the glass over content.';
+    if (name === 'refract') buildMap();
+  }
+  looks.forEach((b) => b.addEventListener('click', () => setLook(b.dataset.look)));
+  looks.forEach((b, i) => b.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const k = (i + (e.key === 'ArrowRight' ? 1 : looks.length - 1)) % looks.length; looks[k].focus(); setLook(looks[k].dataset.look); e.preventDefault(); }
+  }));
+  window.addEventListener('resize', () => { if (document.body.dataset.look === 'refract') buildMap(); });
+
+  select(1);
+  setLook(chromium ? 'refract' : 'frost');
+})();
+</script>

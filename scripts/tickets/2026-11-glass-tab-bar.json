@@ -1,0 +1,30 @@
+{
+  "note": "Added on 21 Nov 2026 from the liquid glass tab bar prototype and its comparison with the burger menu.",
+  "tickets": [
+    {
+      "key": "glass-bar",
+      "kind": "FE",
+      "epic": "1 Header & nav",
+      "deps": [
+        "FE-07",
+        "FE-09"
+      ],
+      "title": "Liquid glass bottom tab bar on phones (Shop, Search, Quick Order, Lists, Cart)",
+      "scope": "A floating bottom bar for phones with a glass lens over the active tab. It puts the repeat jobs of a trade customer one tap away: today Quick Order and Shopping list sit in the burger drawer (two taps), the cart and search are header icons. Only features that exist already; no new page, no new business rule.\n\nStep 1 (stop for Roman): run `elme-look-options`. One page in `docs/design/`, phone and desktop frame, the real Elme header and pages, three looks side by side: A the burger menu as today (FE-07, FE-09); B the bottom bar in frosted glass with a sliding lens; C the same bar solid, no blur. Put the open decision on the page: where Contact, Become a Stockist and My Account go once the bar is there, and whether the burger stays. A working prototype of A and B to start from: `.roadmap/app/docs/prototypes/elme-mobile-nav.html` (a tap counter per job) and `glass-bar-phone-test.html` (full screen, for a real phone). Do not edit templates in this step.\n\nStep 2 after the pick:\n- Phones only (below `md`, 768 px). Desktop and tablet do not change.\n- Tabs, trade customer: Shop, Search, Quick Order (/quick-order), Lists (/quick-order/template), Cart (/quick-order/cart) with the item count the header cart shows (same customer section data, FE-79). Guest: Shop, Search, Stockist (/become-a-stockist), Log in. Guests never get a cart, Quick Order or lists (FE-53). My Account stays an icon in the header. Icons with a visible label under each.\n- Shop opens a bottom sheet with the category tree the mobile drawer shows now (Snowdog menu data, D3), not a second menu source. Picking a category opens it and closes the sheet.\n- The active tab comes from the current URL on the server (`aria-current=\"page\"`), so the lens is in the right place on first paint.\n- Glass: a frosted plate and a lens over the active tab, as two sibling elements (a lens inside a blurred plate cannot see the page). Press the bar and drag: the lens grows and settles on the nearest tab; a tap does the same. CSS `backdrop-filter` with the `-webkit-` prefix. No SVG refraction: it works in Chrome only.\n- Solid look (no blur, solid fill) when `backdrop-filter` is not supported or `prefers-reduced-transparency` is set. No spring or drag animation with `prefers-reduced-motion`.\n- Placement: fixed at the bottom above the iPhone home bar (`env(safe-area-inset-bottom)`), with matching bottom padding on the page so nothing hides behind it. Hidden while an input has focus (keyboard open) and in checkout. On the product page it sits above the sticky add to cart bar (FE-27); the PLP filters button, the Zendesk button (UX-06) and the cookie bar sit above it; drawers and dialogs cover it. The header still hides on scroll down (FE-60); the bar stays.\n- One Hyvä block in `Elme/default`: layout XML, one phtml, one partial in `web/tailwind/elme/`. Colours and radius from the design tokens (add glass tokens), no hardcoded hex. Alpine CSP-compatible for the drag; the rest needs no JS. Send a GTM event on each tab tap with the tab name (FE-54), so the choice can be measured.\n\nRelated: UX-12 (faster reordering). Not in scope: the refraction effect, more tabs, any change to the desktop header.",
+      "ref": "Prototypes: `.roadmap/app/docs/prototypes/elme-mobile-nav.html`, `.roadmap/app/docs/prototypes/glass-bar-phone-test.html` (on main of the board repo). Header: `app/design/frontend/Elme/default/Magento_Theme/templates/html/header.phtml`; drawer: `Snowdog_Menu/templates/hyva-topmenu-mobile/`; tokens: `web/tailwind/hyva.config.json`.",
+      "qa": [
+        "At 360 to 430 px the bar floats above the iPhone home bar and the last element of every page is fully visible when scrolled to the end; no horizontal scroll",
+        "Trade customer sees Shop, Search, Quick Order, Lists, Cart; guest sees Shop, Search, Stockist, Log in; a guest has no cart, Quick Order or lists link anywhere, page source included (FE-53)",
+        "Each tab opens the right page; after a full reload on each of them the active tab is marked (aria-current) and the lens already sits on it",
+        "The cart badge equals the header cart count after add, remove and save (FE-79)",
+        "The Shop sheet lists the same categories as the drawer; picking one opens it; the sheet closes on Esc and on a tap outside, and focus returns to the Shop tab",
+        "Press and drag moves the lens, release lands on the nearest tab and opens it; a plain tap does the same; checked on a real iPhone (Safari) and a real Android phone (Chrome)",
+        "The bar hides while an input has focus and comes back after; it is not shown in checkout",
+        "On a product page it sits above the sticky add to cart bar; the Zendesk button, cookie bar and PLP filters button do not overlap it",
+        "With \"Reduce transparency\" on, and in a browser without backdrop-filter, the bar is solid and readable; with reduced motion the lens does not animate; labels keep 4.5:1 contrast over a dark photo and over a white page",
+        "Lighthouse mobile on home, a category and a product: CLS under 0.1 and performance no more than 2 points below before; keyboard reaches every tab with a visible focus ring; axe reports 0 critical issues",
+        "Each tab tap sends the GTM event with the tab name"
+      ]
+    }
+  ]
+}

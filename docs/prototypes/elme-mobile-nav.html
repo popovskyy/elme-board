@@ -1,0 +1,350 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Elme Mobile Nav</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: controls and a task on one side, an Elme phone on the other; stacked on a phone. The phone is a picture of the store, so it keeps the store's own colours in both page themes. */
+  :root {
+    --bg: #F5F4EF; --surface: #FFFFFF; --ink: #3A3935; --muted: #605E55; --line: #D8D5CE; --accent: #5F6E67; --on-accent: #FFFFFF; --band: #E9EDE3;
+    --font: Figtree, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* the store (hyva.config.json) */
+    --e-page: #F5F4EF; --e-surface: #FFFFFF; --e-muted: #F1F0EA; --e-ink: #3A3935; --e-ink2: #605E55; --e-border: #D8D5CE; --e-sage: #ADBBA1; --e-sand: #D4C8B3; --e-sand-l: #E1DBD1;
+    --e-blue: #98A8BB; --e-blue-d: #68839C; --e-olive: #647455; --e-olive-d: #4F5F44; --e-ok: #E2E8DB;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1A1C18; --surface: #252822; --ink: #ECEBE4; --muted: #A5A99E; --line: #3A3E35; --accent: #B3C6A0; --on-accent: #1A1C18; --band: #20231E; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg: #1A1C18; --surface: #252822; --ink: #ECEBE4; --muted: #A5A99E; --line: #3A3E35; --accent: #B3C6A0; --on-accent: #1A1C18; --band: #20231E; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font: 400 16px/1.5 var(--font); }
+  .wrap { max-width: 1000px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1 { margin: 0 0 4px; font: 600 clamp(26px, 5vw, 34px)/1.15 var(--font); text-wrap: balance; }
+  h2 { margin: 0 0 8px; font: 700 12px/1.3 var(--font); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .lede { margin: 0 0 20px; max-width: 62ch; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: minmax(0, 390px) minmax(0, 1fr); grid-template-areas: "phone side"; gap: 36px; align-items: start; }
+  @media (max-width: 880px) { .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "side" "phone"; gap: 22px; } }
+  .phone-col { grid-area: phone; min-width: 0; } .side { grid-area: side; min-width: 0; display: grid; gap: 22px; }
+  .block { min-width: 0; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .seg button { min-height: 46px; padding: 6px 8px; border: 0; border-radius: 9px; background: none; color: var(--ink); font: 600 14px/1.2 var(--font); cursor: pointer; }
+  .seg button small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  .seg button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+  .seg button[aria-checked="true"] small { color: inherit; opacity: .85; }
+  .seg button:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 14px/1.2 var(--font); cursor: pointer; }
+  .chip[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+  .status { min-height: 48px; margin: 10px 0 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 15px; }
+  .status b { font-variant-numeric: tabular-nums; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { width: 100%; min-width: 360px; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; } th { font-size: 12px; font-weight: 700; color: var(--muted); }
+  td.num { font-variant-numeric: tabular-nums; } td small { display: block; color: var(--accent); font-weight: 600; }
+  td.win { font-weight: 700; }
+  .take { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .take p { margin: 0 0 8px; } .take p:last-child { margin: 0; }
+
+  /* ---------- the phone: an Elme storefront ---------- */
+  .phone { position: relative; width: min(390px, 100%); height: 720px; overflow: hidden; border-radius: 30px; background: var(--e-page); color: var(--e-ink); border: 1px solid var(--e-border); box-shadow: 0 14px 40px rgb(30 30 20 / .22); isolation: isolate; font-family: var(--font); }
+  .frame { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .topstrip { flex: none; padding: 6px 14px; background: var(--e-blue); color: var(--e-ink); font-size: 11px; font-weight: 600; text-align: center; letter-spacing: .02em; }
+  .hdr { flex: none; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 56px; padding: 0 6px; background: var(--e-surface); border-bottom: 1px solid var(--e-border); }
+  .hdr .l, .hdr .r { display: flex; align-items: center; } .hdr .r { justify-content: flex-end; }
+  .hdr .logo { display: block; height: 24px; width: auto; }
+  .ib { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 0; background: none; color: var(--e-ink); border-radius: 12px; cursor: pointer; }
+  .ib:focus-visible, .tab:focus-visible, .row:focus-visible, .cat:focus-visible { outline: 2px solid var(--e-olive); outline-offset: -3px; }
+  .ic { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .badge { position: absolute; top: 5px; right: 3px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--e-ink); color: #fff; font: 700 10px/17px var(--font); text-align: center; }
+  .content { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 14px 28px; scrollbar-width: none; }
+  .content::-webkit-scrollbar { display: none; }
+  .phone[data-pattern="bar"] .content { padding-bottom: 120px; }
+  .phone .sh { margin: 0 0 12px; font: 600 24px/1.2 var(--font); letter-spacing: 0; text-transform: none; color: var(--e-ink); }
+  .muted { color: var(--e-ink2); font-size: 13px; }
+  .hero { margin-bottom: 18px; padding: 22px 18px; border-radius: 6px; background: var(--e-sand-l); }
+  .hero h3 { margin: 0 0 6px; font: 600 22px/1.2 var(--font); } .hero p { margin: 0 0 12px; font-size: 14px; color: var(--e-ink2); }
+  .btn { display: inline-block; padding: 11px 20px; border: 1px solid var(--e-ink); background: var(--e-ink); color: #fff; font: 600 14px/1 var(--font); }
+  .btn.ghost { background: none; color: var(--e-ink); }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tile i { display: block; aspect-ratio: 1 / 1; }
+  .tile b { display: block; margin-top: 6px; font-weight: 600; font-size: 13px; line-height: 1.25; }
+  .tile span { display: block; font-size: 12px; color: var(--e-ink2); }
+  .ph1 { background: linear-gradient(145deg, var(--e-sand), #B3A78F); } .ph2 { background: repeating-linear-gradient(45deg, var(--e-olive) 0 12px, var(--e-sage) 12px 24px); }
+  .ph3 { background: radial-gradient(circle at 35% 30%, #C7D4E1, var(--e-blue-d)); } .ph4 { background: radial-gradient(circle at 50% 55%, var(--e-ink) 0 34%, var(--e-sand-l) 35%); }
+  .ph5 { background: repeating-linear-gradient(90deg, var(--e-ink) 0 7px, var(--e-page) 7px 14px); } .ph6 { background: linear-gradient(0deg, var(--e-olive-d), var(--e-sage)); }
+  .field { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; margin-bottom: 12px; border: 1px solid var(--e-border); background: var(--e-surface); color: var(--e-ink2); font-size: 15px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; } .pills span { padding: 7px 12px; border: 1px solid var(--e-border); background: var(--e-surface); font-size: 13px; }
+  .card { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding: 14px; border: 1px solid var(--e-border); background: var(--e-surface); }
+  .card b { display: block; font-weight: 600; } .card .muted { display: block; }
+  .qty { display: inline-flex; border: 1px solid var(--e-border); font-variant-numeric: tabular-nums; } .qty span { min-width: 30px; padding: 6px 8px; text-align: center; font-size: 14px; } .qty span + span { border-left: 1px solid var(--e-border); }
+  .inp { display: block; height: 46px; margin-bottom: 10px; padding: 0 14px; border: 1px solid var(--e-border); background: var(--e-surface); line-height: 44px; color: var(--e-ink2); font-size: 15px; }
+
+  /* burger pattern: the drawer */
+  .scrim { position: absolute; inset: 0; z-index: 30; background: rgb(30 30 25 / .45); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
+  .drawer { position: absolute; z-index: 31; top: 0; bottom: 0; left: 0; width: 84%; display: flex; flex-direction: column; background: var(--e-surface); transform: translateX(-102%); transition: transform 280ms cubic-bezier(.22, 1, .36, 1); }
+  .phone.menu-open .scrim { opacity: 1; pointer-events: auto; } .phone.menu-open .drawer { transform: none; }
+  .dhead { flex: none; display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 6px 0 16px; border-bottom: 1px solid var(--e-border); font-weight: 600; }
+  .dlist { flex: 1; overflow-y: auto; }
+  .row { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 52px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--e-border); background: none; color: var(--e-ink); font: 500 16px/1.2 var(--font); text-align: left; cursor: pointer; }
+  .row.sec { min-height: 46px; font-size: 15px; color: var(--e-ink2); } .row .ic { width: 18px; height: 18px; color: var(--e-ink2); }
+
+  /* glass bar pattern: a plate and a lens, side by side (a lens inside the plate cannot see the page behind it) */
+  .nav { position: absolute; z-index: 20; left: 16px; right: 16px; bottom: 16px; height: 68px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  .plate { position: absolute; inset: 0; border-radius: 999px; background: rgb(245 244 239 / .62); border: 1px solid rgb(255 255 255 / .85); box-shadow: 0 10px 28px rgb(58 57 53 / .22), inset 0 1px 0 rgb(255 255 255 / .9);
+           -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6); }
+  .lens { position: absolute; z-index: 1; top: -6px; bottom: -6px; left: 0; width: 20%; border-radius: 999px; pointer-events: none; background: rgb(173 187 161 / .26);
+          box-shadow: inset 0 0 0 1px rgb(255 255 255 / .8), inset 0 3px 7px rgb(255 255 255 / .85), inset 0 -4px 9px rgb(58 57 53 / .08), 0 8px 18px rgb(58 57 53 / .18);
+          -webkit-backdrop-filter: blur(1.5px) saturate(1.8) brightness(1.08); backdrop-filter: blur(1.5px) saturate(1.8) brightness(1.08);
+          transition: left 520ms cubic-bezier(.3, 1.45, .5, 1), transform 240ms cubic-bezier(.3, 1.4, .5, 1), opacity 200ms ease; }
+  .lens.drag { transition: transform 240ms cubic-bezier(.3, 1.4, .5, 1), opacity 200ms ease; } .lens.pressed { transform: scale(1.12); } .lens.off { opacity: 0; }
+  .lens::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px; opacity: .6; background: conic-gradient(from 200deg, #ff7aa8, #ffd86a, #7affc0, #6fb1ff, #b98aff, #ff7aa8);
+                 -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  .tab { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 100%; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--e-ink); font: 600 10px/1.1 var(--font); letter-spacing: .01em; cursor: pointer; }
+  .tab .ic { width: 25px; height: 25px; transition: transform 240ms cubic-bezier(.3, 1.4, .5, 1); } .tab[aria-current="page"] { color: var(--e-olive-d); } .tab[aria-current="page"] .ic { transform: scale(1.08); }
+  .sheet { position: absolute; z-index: 15; left: 0; right: 0; bottom: 0; padding: 18px 16px 104px; border-radius: 22px 22px 0 0; background: var(--e-surface); box-shadow: 0 -10px 30px rgb(58 57 53 / .2); transform: translateY(104%); transition: transform 320ms cubic-bezier(.22, 1, .36, 1); }
+  .sheet h4 { margin: 0 0 10px; font: 600 16px/1.2 var(--font); }
+  .phone.sheet-open .sheet { transform: none; } .phone.sheet-open .scrim { opacity: 1; pointer-events: auto; z-index: 14; }
+  .cats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cat { min-height: 52px; padding: 0 14px; border: 1px solid var(--e-border); background: var(--e-page); color: var(--e-ink); font: 500 15px/1.2 var(--font); text-align: left; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { .lens, .lens.drag, .drawer, .sheet, .scrim, .tab .ic { transition: none; } }
+  @media (prefers-reduced-transparency: reduce) { .plate { background: var(--e-page); -webkit-backdrop-filter: none; backdrop-filter: none; } .lens { background: var(--e-sage); -webkit-backdrop-filter: none; backdrop-filter: none; } .lens::after { display: none; } }
+  @media (max-width: 480px) { .phone { border-radius: 22px; height: 680px; } }
+</style>
+
+<template id="logo"><svg width="180" height="38" viewBox="0 0 180 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_6580_9561)">
+<path d="M23.5226 11.9981C23.5018 11.922 23.4663 11.8508 23.4182 11.7887C19.5191 6.67017 16.7348 6.03629 16.6195 6.00837C16.5406 5.99298 16.4595 5.99298 16.3806 6.00837C16.2653 6.0335 13.4893 6.66459 9.58193 11.7859C9.53381 11.848 9.49834 11.9192 9.47759 11.9953C8.36551 16.1432 8.19929 20.4945 8.99158 24.7176C9.00842 24.8046 9.04406 24.8866 9.09592 24.9578C10.5375 26.9432 12.8797 29.4983 15.9083 30.5734V33.0112H17.0891V30.5734C20.1095 29.4983 22.4627 26.9432 23.9042 24.9578C23.9561 24.8866 23.9917 24.8046 24.0086 24.7176C24.7987 20.499 24.6325 16.1527 23.5226 12.0093V11.9981ZM9.90869 16.0388C12.0724 20.2721 14.8787 21.7828 15.9221 22.2212V25.3683C14.5492 24.8098 11.4711 23.1343 9.70549 18.7558C9.73021 17.8483 9.79611 16.9407 9.90869 16.0388ZM17.1028 7.48556C17.6966 7.79968 18.2578 8.1739 18.7777 8.60253C18.3047 9.46115 17.7432 10.2662 17.1028 11.004V7.48556ZM15.9221 10.9984C15.2826 10.2588 14.7212 9.45294 14.2471 8.59416C14.768 8.16684 15.3291 7.79271 15.9221 7.47719V10.9984ZM17.1028 22.2045C18.1792 21.7493 20.9662 20.2135 23.1107 15.9829C23.2276 16.9029 23.2982 17.8285 23.3221 18.7558C21.5648 23.1008 18.4949 24.7986 17.1028 25.3627V22.2045ZM22.7647 13.8718C20.9909 18.3397 18.3714 20.1911 17.1028 20.8725V17.7645C17.9512 17.287 20.0765 15.7791 22.0178 11.9004C22.1524 12.0679 22.2924 12.2383 22.427 12.4198C22.5533 12.8945 22.6659 13.3748 22.7647 13.8607V13.8718ZM21.1666 10.9202C19.6674 14.0757 18.0336 15.6367 17.0836 16.3348V12.6488C17.5558 12.2718 18.5389 11.3307 19.6729 9.38441C20.1342 9.81165 20.6339 10.3199 21.1666 10.9202ZM13.3163 9.38441C14.4476 11.3391 15.4333 12.2718 15.9029 12.6488V16.3404C14.9555 15.6395 13.3218 14.0813 11.8225 10.9258C12.2941 10.3881 12.7927 9.87547 13.3163 9.39V9.38441ZM10.9905 11.9032C12.9319 15.7707 15.0571 17.2786 15.9029 17.7673V20.8948C14.6398 20.2302 12.0202 18.3816 10.2327 13.9333C10.3334 13.4269 10.4496 12.9271 10.5814 12.4337C10.7187 12.2522 10.856 12.0819 10.9905 11.9144V11.9032ZM10.1174 24.3435C9.94258 23.4074 9.81973 22.4621 9.74943 21.5119C11.9104 25.0136 14.7908 26.2758 15.9029 26.65V29.2861C13.3932 28.2584 11.4024 26.0887 10.1174 24.3435ZM17.0836 29.2861V26.65C18.1984 26.2758 21.0788 25.0136 23.2397 21.5119C23.1699 22.4622 23.0461 23.4077 22.869 24.3435C21.5867 26.0859 19.596 28.2529 17.0836 29.2861Z" fill="#3A3935"/>
+</g>
+<g clip-path="url(#clip1_6580_9561)">
+<path d="M46.9343 20.603H35.0697C35.2224 21.1198 35.4753 21.6005 35.8136 22.0168C36.1519 22.4332 36.5688 22.7767 37.0398 23.0272C38.2332 23.65 39.5647 23.9499 40.9057 23.8981C41.7064 23.8923 42.5053 23.8212 43.2948 23.6855C44.097 23.5551 44.8879 23.3614 45.6603 23.106V26.3703C44.8948 26.5899 44.1159 26.7583 43.3286 26.8744C42.4267 26.9936 41.5178 27.0497 40.6083 27.0424C38.9797 27.0739 37.3642 26.7402 35.8774 26.0651C34.5741 25.4727 33.4598 24.5227 32.6603 23.322C31.8817 22.1351 31.4774 20.7359 31.5012 19.3103C31.4768 17.9215 31.8199 16.5515 32.4947 15.3431C33.1475 14.192 34.1066 13.2508 35.2623 12.6274C36.504 11.9647 37.891 11.632 39.2938 11.6605C40.6718 11.6383 42.0311 11.9861 43.234 12.6686C44.3865 13.3291 45.3309 14.3075 45.9577 15.4905C46.6218 16.7558 46.9579 18.1718 46.9343 19.6052V20.603ZM36.3471 15.7202C35.5695 16.4195 35.0767 17.3878 34.965 18.4359H43.5179C43.4042 17.3845 42.9048 16.415 42.1188 15.7202C41.2982 15.0707 40.2872 14.718 39.2465 14.718C38.2057 14.718 37.1947 15.0707 36.3741 15.7202" fill="#3A3935"/>
+<path d="M53.1279 5.46454H49.698V26.7338H53.1279V5.46454Z" fill="#3A3935"/>
+<path d="M81.9089 18.0999V26.7372H78.5127V18.4668C78.5127 17.9388 78.4958 17.5067 78.4654 17.1707C78.4365 16.8404 78.3614 16.516 78.2424 16.2072C78.0474 15.6855 77.6794 15.249 77.2016 14.9728C76.6664 14.6659 76.0589 14.513 75.4444 14.5305C74.9012 14.5167 74.3616 14.6227 73.8628 14.8411C73.364 15.0596 72.9178 15.3853 72.5551 15.7957C71.7865 16.6591 71.3772 17.7908 71.4129 18.9537V26.7372H67.9863V18.4668C67.9863 17.9388 67.9694 17.5067 67.939 17.1707C67.911 16.8429 67.8452 16.5195 67.743 16.2072C67.5556 15.6726 67.1818 15.2262 66.6921 14.9522C66.1468 14.6575 65.5356 14.511 64.918 14.527C64.1962 14.5201 63.4873 14.721 62.8735 15.1065C62.2509 15.4938 61.7458 16.0479 61.4137 16.7078C61.0598 17.4003 60.8787 18.1703 60.8865 18.9503V26.7338H57.46V11.9657H60.8865V16.4506C61.2654 15.1138 62.0177 13.9169 63.0526 13.0046C64.0404 12.1226 65.3155 11.6437 66.6313 11.6605C67.6089 11.6346 68.5688 11.9292 69.3685 12.5006C70.1338 13.0646 70.7029 13.8606 70.9939 14.7739C71.1799 15.3478 71.3001 15.9414 71.3521 16.5432C71.7331 15.1857 72.4909 13.9681 73.5351 13.0355C74.5211 12.1383 75.8029 11.6489 77.1272 11.6639C78.1108 11.6334 79.0774 11.9282 79.8813 12.504C80.6418 13.076 81.2133 13.8687 81.5203 14.7773C81.8139 15.8599 81.9449 16.9812 81.9089 18.1033" fill="#3A3935"/>
+<path d="M100.138 20.603H88.2865C88.4385 21.1202 88.6911 21.6013 89.0295 22.0177C89.3679 22.4341 89.7852 22.7774 90.2566 23.0272C91.45 23.65 92.7815 23.95 94.1225 23.8982C94.9232 23.8923 95.7221 23.8213 96.5116 23.6856C97.3137 23.5548 98.1046 23.3611 98.8771 23.1061V26.3704C98.1116 26.59 97.3327 26.7584 96.5454 26.8744C95.6435 26.9937 94.7346 27.0498 93.8251 27.0424C92.1965 27.0739 90.581 26.7403 89.0941 26.0652C87.7909 25.4728 86.6766 24.5227 85.8771 23.3221C85.0985 22.1352 84.6942 20.736 84.718 19.3103C84.6936 17.9216 85.0367 16.5516 85.7115 15.3431C86.3612 14.1982 87.3141 13.2609 88.4622 12.6378C89.702 11.972 91.0878 11.6358 92.4903 11.6605C93.8683 11.6384 95.2276 11.9861 96.4305 12.6686C97.583 13.3291 98.5274 14.3076 99.1542 15.4906C99.8184 16.7559 100.154 18.1718 100.131 19.6052L100.138 20.603ZM89.5503 15.7203C88.7728 16.4196 88.28 17.3878 88.1682 18.436H96.7076C96.594 17.3846 96.0945 16.4151 95.3086 15.7203C94.488 15.0708 93.477 14.718 92.4362 14.718C91.3955 14.718 90.3845 15.0708 89.5639 15.7203" fill="#3A3935"/>
+<path d="M111.81 5.46457H108.38V26.7338H111.81V5.46457Z" fill="#3A3935"/>
+<path d="M116.277 9.38743C116.067 9.17969 115.901 8.93033 115.79 8.65486C115.679 8.3794 115.625 8.0837 115.632 7.78615C115.63 7.49763 115.687 7.21187 115.799 6.94649C115.91 6.68112 116.074 6.44175 116.28 6.24316C116.701 5.82309 117.268 5.58768 117.859 5.58768C118.449 5.58768 119.016 5.82309 119.437 6.24316C119.643 6.44175 119.807 6.68112 119.919 6.94649C120.03 7.21187 120.087 7.49763 120.085 7.78615C120.084 8.23262 119.952 8.66859 119.707 9.03935C119.462 9.41011 119.114 9.69915 118.708 9.87019C118.301 10.0412 117.854 10.0867 117.422 10.0008C116.99 9.91489 116.593 9.70152 116.28 9.38743H116.277ZM116.145 11.9659H119.572V26.7375H116.142L116.145 11.9659Z" fill="#3A3935"/>
+<path d="M137.192 11.9658L132.501 26.7339H125.854L121.373 11.9658H125.043L129.223 26.247L133.674 11.9658H137.192Z" fill="#3A3935"/>
+<path d="M139.105 9.38743C138.894 9.17998 138.728 8.93076 138.616 8.65528C138.504 8.37979 138.45 8.08395 138.456 7.78615C138.454 7.49763 138.511 7.21187 138.623 6.94649C138.734 6.68112 138.898 6.44175 139.105 6.24316C139.526 5.82309 140.092 5.58768 140.683 5.58768C141.273 5.58768 141.84 5.82309 142.261 6.24316C142.467 6.44192 142.63 6.6814 142.741 6.94679C142.852 7.21218 142.908 7.49785 142.906 7.78615C142.905 8.23264 142.774 8.66888 142.53 9.03996C142.285 9.41104 141.937 9.70038 141.531 9.87156C141.125 10.0427 140.677 10.0881 140.246 10.002C139.814 9.91582 139.417 9.70201 139.105 9.38743ZM138.969 11.9659H142.396V26.7375H138.969V11.9659Z" fill="#3A3935"/>
+<path d="M160.637 16.3752C160.688 16.9136 160.711 17.4896 160.711 18.0897V26.727H157.285V18.4668C157.285 17.9388 157.268 17.5033 157.237 17.1707C157.209 16.8429 157.144 16.5195 157.041 16.2072C156.854 15.6733 156.48 15.2278 155.99 14.9557C155.445 14.6609 154.834 14.5145 154.216 14.5305C153.495 14.5235 152.786 14.7245 152.172 15.11C151.549 15.4972 151.044 16.0513 150.712 16.7113C150.358 17.4037 150.177 18.1737 150.185 18.9537V26.7373H146.758V11.9657H150.185V16.4507C150.564 15.1138 151.316 13.9169 152.351 13.0047C153.339 12.1226 154.614 11.6437 155.93 11.6605C156.907 11.6347 157.867 11.9293 158.667 12.5006C159.432 13.0647 160.001 13.8607 160.292 14.7739C160.467 15.2923 160.58 15.8298 160.63 16.3752" fill="#3A3935"/>
+<path d="M179.5 11.9657V23.7164C179.5 26.6241 178.648 28.8208 176.942 30.3067C175.237 31.7925 172.951 32.5354 170.086 32.5354C169.151 32.5351 168.219 32.4374 167.305 32.244C166.485 32.0866 165.697 31.7923 164.973 31.373V28.047C165.718 28.4668 166.511 28.7904 167.335 29.0106C168.219 29.2331 169.128 29.3402 170.038 29.3294C172.023 29.3294 173.527 28.8311 174.55 27.8345C175.572 26.8378 176.084 25.4663 176.084 23.7198V21.467C175.712 22.8101 174.946 24.0062 173.887 24.8959C172.84 25.7627 171.522 26.2223 170.17 26.192C168.989 26.2109 167.828 25.8771 166.831 25.2319C165.84 24.5831 165.044 23.6696 164.53 22.5917C163.972 21.4439 163.688 20.1787 163.702 18.8988C163.687 17.6287 163.971 16.3731 164.53 15.2368C165.051 14.1725 165.847 13.2709 166.831 12.6274C167.828 11.984 168.989 11.6502 170.17 11.6673C171.521 11.6386 172.839 12.098 173.887 12.9635C174.942 13.8468 175.708 15.034 176.084 16.3683V11.9657H179.5ZM174.834 21.8099C175.23 21.4382 175.545 20.9874 175.762 20.4858C175.978 19.9843 176.089 19.4428 176.089 18.8954C176.089 18.348 175.978 17.8065 175.762 17.305C175.545 16.8034 175.23 16.3526 174.834 15.9809C173.991 15.2055 172.885 14.7903 171.748 14.8219C170.589 14.7844 169.459 15.1992 168.592 15.9809C168.194 16.3512 167.876 16.8016 167.658 17.3033C167.441 17.8051 167.328 18.3472 167.328 18.8954C167.328 19.4436 167.441 19.9857 167.658 20.4875C167.876 20.9892 168.194 21.4396 168.592 21.8099C169.468 22.5739 170.594 22.9765 171.748 22.938C172.883 22.9712 173.988 22.5613 174.834 21.7928" fill="#3A3935"/>
+</g>
+<defs>
+<clipPath id="clip0_6580_9561">
+<rect width="16" height="27" fill="white" transform="translate(8.5 6)"/>
+</clipPath>
+<clipPath id="clip1_6580_9561">
+<rect width="148" height="38" fill="white" transform="translate(31.5)"/>
+</clipPath>
+</defs>
+</svg></template>
+
+<main class="wrap">
+  <h1>Elme mobile nav</h1>
+  <p class="lede">The burger menu the store has today against a glass tab bar, on the same pages. Pick a job and do it with each: the counter shows how many taps it took.</p>
+
+  <div class="grid">
+    <div class="phone-col">
+      <div class="phone" id="phone" data-pattern="burger"><div class="frame" id="frame"></div></div>
+    </div>
+
+    <div class="side">
+      <div class="block">
+        <h2 id="pat-l">Navigation</h2>
+        <div class="seg" role="radiogroup" aria-labelledby="pat-l" id="pattern">
+          <button type="button" role="radio" aria-checked="true" data-v="burger">Burger menu<small>the store today</small></button>
+          <button type="button" role="radio" aria-checked="false" data-v="bar">Glass tab bar<small>new</small></button>
+        </div>
+      </div>
+      <div class="block">
+        <h2 id="aud-l">Visitor</h2>
+        <div class="seg" role="radiogroup" aria-labelledby="aud-l" id="aud">
+          <button type="button" role="radio" aria-checked="true" data-v="trade">Trade customer<small>logged in</small></button>
+          <button type="button" role="radio" aria-checked="false" data-v="guest">Guest<small>no prices, no cart</small></button>
+        </div>
+      </div>
+      <div class="block">
+        <h2>Try a job</h2>
+        <div class="chips" id="tasks" role="group" aria-label="Jobs"></div>
+        <p class="status" id="status" aria-live="polite">Pick a job, then reach it with the navigation in the phone.</p>
+      </div>
+      <div class="block">
+        <h2>Fewest taps possible</h2>
+        <div class="tablewrap"><table id="results"></table></div>
+      </div>
+      <div class="take">
+        <p><b>Short answer.</b> For the repeat jobs of a trade customer (Quick Order, shopping lists, cart) the bar is one tap and the burger is two. Browsing categories is two taps in both.</p>
+        <p>The bar cannot hold the whole category tree, so it needs a Shop tab that opens a sheet with the same list the drawer has today.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const phone = $('#phone'), frame = $('#frame');
+  const ICON = {
+    burger: '<path d="M4 7h16M4 12h16M4 17h16"/>', close: '<path d="M6 6l12 12M18 6 6 18"/>',
+    search: '<circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/>', user: '<circle cx="12" cy="8.5" r="3.6"/><path d="M5 20c0-3.8 3-5.8 7-5.8s7 2 7 5.8"/>',
+    bag: '<path d="M5 8h14l-1 12H6zM9 8V6.5a3 3 0 0 1 6 0V8"/>', heart: '<path d="M12 20s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10C19.5 15.4 12 20 12 20z"/>',
+    grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
+    qo: '<path d="M4 6h10M4 12h10M4 18h6"/><path d="M18 11v8M14 15h8"/>', store: '<path d="M4 9.5 5.5 4h13L20 9.5M4 9.5V20h16V9.5M4 9.5h16M9.5 20v-5h5v5"/>',
+    chev: '<path d="m9 6 6 6-6 6"/>',
+  };
+  const ic = (k, cls = '') => `<svg viewBox="0 0 24 24" class="ic ${cls}" aria-hidden="true">${ICON[k]}</svg>`;
+  const CATS = ['New', 'Flowers & Plants', 'Homewares', 'Furniture', 'Outdoor', 'Sale'];
+  const TABS = {
+    trade: [['shop', 'grid', 'Shop'], ['search', 'search', 'Search'], ['qo', 'qo', 'Quick Order'], ['lists', 'heart', 'Lists'], ['cart', 'bag', 'Cart']],
+    guest: [['shop', 'grid', 'Shop'], ['search', 'search', 'Search'], ['apply', 'store', 'Stockist'], ['login', 'user', 'Log in']],
+  };
+  const TASKS = {
+    trade: [['qo', 'Open Quick Order'], ['lists', 'Open a shopping list'], ['cart', 'Open the cart'], ['search', 'Search for a product'], ['shop', 'Open a category']],
+    guest: [['login', 'Trade login'], ['apply', 'Become a stockist'], ['search', 'Search for a product'], ['shop', 'Open a category']],
+  };
+  const TITLE = { home: 'Home', shop: 'Furniture', search: 'Search', qo: 'Quick Order', lists: 'Shopping lists', cart: 'Quick Order cart', login: 'Trade login', apply: 'Become a stockist', account: 'My account' };
+  // fewest taps, by what each pattern puts where: header icons are one tap, the drawer's links are two (menu, then the link)
+  const MIN = { burger: { qo: 2, lists: 2, cart: 1, search: 1, shop: 2, login: 1, apply: 2 }, bar: { qo: 1, lists: 1, cart: 1, search: 1, shop: 2, login: 1, apply: 1 } };
+  const S = { pattern: 'burger', aud: 'trade', screen: 'home', title: 'Home', goal: null, taps: 0, best: { burger: {}, bar: {} } };
+
+  const tile = (p, n, s) => `<div class="tile"><i class="${p}"></i><b>${n}</b><span>${s}</span></div>`;
+  const SCREEN = {
+    home: () => `<div class="hero"><h3>Wholesale home decor, furniture and plants</h3><p>Trade only. ${S.aud === 'guest' ? 'Sign in to see pricing.' : 'Your prices are shown ex GST.'}</p><span class="btn">Shop new</span></div>
+      <h3 class="sh" style="font-size:18px">New in</h3><div class="tiles">${tile('ph1', 'Riley Apt sofa', 'Made to order')}${tile('ph2', 'Fern Lush Boston', 'In stock')}${tile('ph3', 'Muse Flax chair', 'Made to order')}${tile('ph4', 'Knox planter', 'In stock')}</div>`,
+    shop: () => `<h2 class="sh">${S.title}</h2><div class="pills"><span>Filters</span><span>Sort: Position</span></div><div class="tiles">${tile('ph1', 'Riley Apt sofa', 'Made to order')}${tile('ph3', 'Muse Flax chair', 'Made to order')}${tile('ph2', 'Stripe rug', 'In stock')}${tile('ph6', 'Olive console', 'Low stock')}${tile('ph5', 'Oak side table', 'In stock')}${tile('ph4', 'Boucle ottoman', 'In stock')}</div>`,
+    search: () => `<h2 class="sh">Search</h2><div class="field">${ic('search')}Search SKU or name</div><p class="muted">Recent</p><div class="pills"><span>boucle</span><span>stone planter</span><span>107RAPSOFCHLMFL</span></div>`,
+    qo: () => `<h2 class="sh">Quick Order</h2><p class="muted">Type a SKU and a quantity.</p><div class="card"><div><b>Riley Apt chaise module</b><span class="muted">107RAPSOFCHLMFL</span></div><div class="qty"><span>2</span></div></div><div class="card"><div><b>Fern Lush Boston</b><span class="muted">PPP.002.GN</span></div><div class="qty"><span>6</span></div></div><span class="inp">Add a SKU</span><span class="btn">Add all to cart</span>`,
+    lists: () => `<h2 class="sh">Shopping lists</h2><div class="card"><div><b>Spring restock</b><span class="muted">24 items</span></div>${ic('chev')}</div><div class="card"><div><b>Showroom refresh</b><span class="muted">12 items</span></div>${ic('chev')}</div>`,
+    cart: () => `<h2 class="sh">Quick Order cart</h2><div class="card"><div><b>Riley Apt chaise module</b><span class="muted">107RAPSOFCHLMFL</span></div><div class="qty"><span>2</span></div></div><div class="card"><div><b>Fern Lush Boston</b><span class="muted">PPP.002.GN</span></div><div class="qty"><span>6</span></div></div><span class="btn">Proceed to checkout</span>`,
+    account: () => `<h2 class="sh">My account</h2>${['Orders', 'Invoices', 'Address book', 'Account details'].map((r) => `<div class="card"><b>${r}</b>${ic('chev')}</div>`).join('')}`,
+    login: () => `<h2 class="sh">Trade login</h2><span class="inp">Email</span><span class="inp">Password</span><span class="btn">Log in</span><p class="muted" style="margin-top:14px">No account yet? Apply here.</p>`,
+    apply: () => `<h2 class="sh">Become a stockist</h2><p class="muted">Stock Elme Living in your store. Apply for a trade account and we will come back to you.</p><span class="btn">Apply for an account</span>`,
+  };
+
+  // ---------- build the chrome for the chosen pattern and visitor ----------
+  const logo = () => { const d = document.createElement('div'); d.innerHTML = $('#logo').innerHTML; const s = d.querySelector('svg'); s.setAttribute('class', 'logo'); s.removeAttribute('width'); s.removeAttribute('height'); s.setAttribute('aria-label', 'Elme Living'); return d.innerHTML; };
+  const LOGO = logo();
+  function build() {
+    phone.dataset.pattern = S.pattern;
+    phone.classList.remove('menu-open', 'sheet-open');
+    const trade = S.aud === 'trade';
+    const strip = '<div class="topstrip">Trade only</div>';
+    if (S.pattern === 'burger') {
+      frame.innerHTML = `${strip}<header class="hdr"><div class="l"><button class="ib" type="button" data-a="menu" aria-label="Open menu">${ic('burger')}</button></div>${LOGO}
+        <div class="r"><button class="ib" type="button" data-a="go:search" aria-label="Search">${ic('search')}</button><button class="ib" type="button" data-a="go:${trade ? 'account' : 'login'}" aria-label="${trade ? 'My account' : 'Trade login'}">${ic('user')}</button>${trade ? `<button class="ib" type="button" data-a="go:cart" aria-label="Cart">${ic('bag')}<span class="badge">2</span></button>` : ''}</div></header>
+        <div class="content" id="content"></div>
+        <div class="scrim" data-a="close"></div>
+        <aside class="drawer" aria-label="Menu"><div class="dhead">Menu<button class="ib" type="button" data-a="close" aria-label="Close menu">${ic('close')}</button></div><div class="dlist">
+          ${CATS.map((c) => `<button class="row" type="button" data-a="cat:${c}">${c}${ic('chev')}</button>`).join('')}
+          ${trade ? `<button class="row sec" type="button" data-a="go:qo">Quick Order${ic('chev')}</button><button class="row sec" type="button" data-a="go:lists">Shopping list${ic('chev')}</button><button class="row sec" type="button" data-a="go:account">My Account${ic('chev')}</button>`
+                  : `<button class="row sec" type="button" data-a="go:login">Trade login${ic('chev')}</button>`}
+          <button class="row sec" type="button" data-a="go:home">Contact${ic('chev')}</button>
+          <button class="row sec" type="button" data-a="go:apply">Become a Stockist${ic('chev')}</button></div></aside>`;
+    } else {
+      const tabs = TABS[S.aud];
+      frame.innerHTML = `${strip}<header class="hdr"><div class="l"></div>${LOGO}<div class="r"><button class="ib" type="button" data-a="go:${trade ? 'account' : 'login'}" aria-label="${trade ? 'My account' : 'Trade login'}">${ic('user')}</button></div></header>
+        <div class="content" id="content"></div>
+        <div class="scrim" data-a="close"></div>
+        <div class="sheet" role="dialog" aria-label="Shop"><h4>Shop</h4><div class="cats">${CATS.map((c) => `<button class="cat" type="button" data-a="cat:${c}">${c}</button>`).join('')}</div></div>
+        <nav class="nav" id="nav" aria-label="Main" style="--n:${tabs.length}"><i class="plate"></i><span class="lens off" id="lens" style="width:${100 / tabs.length}%"></span>
+          ${tabs.map(([id, icon, label]) => `<button class="tab" type="button" data-tab="${id}" aria-label="${label}">${ic(icon)}<span>${label}</span>${id === 'cart' ? '<span class="badge" style="top:8px;right:calc(50% - 22px)">2</span>' : ''}</button>`).join('')}</nav>`;
+      wireBar();
+    }
+    paint();
+  }
+
+  // ---------- state changes ----------
+  function paint() {
+    $('#content').innerHTML = SCREEN[S.screen]();
+    $('#content').scrollTop = 0;
+    if (S.pattern === 'bar') {
+      const tabs = TABS[S.aud], i = tabs.findIndex(([id]) => id === S.screen);
+      const lens = $('#lens');
+      tabs.forEach((t, k) => { const b = $('#nav').children[k + 2]; if (k === i) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+      lens.classList.toggle('off', i < 0);
+      if (i >= 0) lens.style.left = `${i * 100 / tabs.length}%`;
+    }
+  }
+  // a job is done when its screen is on; the taps counted so far are the result
+  function finishIfGoal() {
+    if (!S.goal || S.screen !== S.goal) return;
+    S.best[S.pattern][S.goal] = Math.min(S.best[S.pattern][S.goal] ?? 99, S.taps);
+    const name = S.pattern === 'bar' ? 'the glass bar' : 'the burger menu';
+    const min = MIN[S.pattern][S.goal];
+    $('#status').innerHTML = `<b>${S.taps} ${S.taps === 1 ? 'tap' : 'taps'}</b> with ${name}. ${S.taps <= min ? 'That is the fewest possible.' : `The fewest possible is ${min}.`}`;
+    S.goal = null; syncTasks(); results();
+  }
+  function go(screen, title) {
+    S.screen = screen; S.title = title || TITLE[screen];
+    phone.classList.remove('menu-open', 'sheet-open');
+    paint();
+    finishIfGoal();
+  }
+  const taskName = () => (TASKS[S.aud].find(([id]) => id === S.goal) || [, ''])[1];
+  const tap = () => { if (S.goal) { S.taps++; $('#status').innerHTML = `Reach <b>${taskName()}</b>. Taps so far: <b>${S.taps}</b>`; } };
+  function act(a) {
+    if (a === 'close') { phone.classList.remove('menu-open', 'sheet-open'); paint(); return; } // closing is not a step toward a job
+    tap();
+    if (a === 'menu') { phone.classList.add('menu-open'); return; }
+    if (a.startsWith('go:')) return go(a.slice(3));
+    if (a.startsWith('cat:')) return go('shop', a.slice(4));
+  }
+  frame.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b) act(b.dataset.a); });
+
+  // ---------- the glass bar: press and drag the lens, release on a tab ----------
+  function wireBar() {
+    const nav = $('#nav'), lens = $('#lens'), n = TABS[S.aud].length;
+    let press = null;
+    const moveTo = (x0) => { const w = press.rect.width / n; const x = Math.min(Math.max(x0 - press.rect.left - w / 2, 0), press.rect.width - w); lens.style.left = `${x / press.rect.width * 100}%`; };
+    nav.addEventListener('pointerdown', (e) => { if (e.button > 0) return; press = { rect: nav.getBoundingClientRect() }; try { nav.setPointerCapture(e.pointerId); } catch (err) { /* older viewers */ } lens.classList.remove('off'); lens.classList.add('pressed', 'drag'); moveTo(e.clientX); });
+    nav.addEventListener('pointermove', (e) => { if (press) moveTo(e.clientX); });
+    const release = () => {
+      if (!press) return;
+      const w = press.rect.width / n, i = Math.max(0, Math.min(n - 1, Math.round(parseFloat(lens.style.left) / 100 * press.rect.width / w)));
+      press = null; lens.classList.remove('pressed', 'drag');
+      selectTab(i);
+    };
+    nav.addEventListener('pointerup', release); nav.addEventListener('pointercancel', release);
+    nav.addEventListener('click', (e) => { const b = e.target.closest('.tab'); if (b && e.detail === 0) selectTab([...nav.querySelectorAll('.tab')].indexOf(b)); });
+    nav.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const tabs = [...nav.querySelectorAll('.tab')]; const k = Math.max(0, Math.min(n - 1, tabs.indexOf(document.activeElement) + (e.key === 'ArrowRight' ? 1 : -1))); tabs[k].focus(); selectTab(k); e.preventDefault(); } });
+  }
+  function selectTab(i) {
+    const [id] = TABS[S.aud][i], lens = $('#lens');
+    tap();
+    lens.classList.remove('off'); lens.style.left = `${i * 100 / TABS[S.aud].length}%`;
+    [...$('#nav').querySelectorAll('.tab')].forEach((b, k) => k === i ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+    // Shop opens the category sheet over the current page; the page changes when a category is picked
+    if (id === 'shop') { phone.classList.add('sheet-open'); return; }
+    S.screen = id; S.title = TITLE[id]; phone.classList.remove('sheet-open'); $('#content').innerHTML = SCREEN[id](); $('#content').scrollTop = 0;
+    finishIfGoal();
+  }
+
+  // ---------- the side ----------
+  function syncTasks() {
+    $('#tasks').innerHTML = TASKS[S.aud].map(([id, label]) => `<button class="chip" type="button" data-t="${id}" aria-pressed="${S.goal === id}">${label}</button>`).join('');
+  }
+  function results() {
+    const rows = TASKS[S.aud].map(([id, label]) => {
+      const b = MIN.burger[id], g = MIN.bar[id], yb = S.best.burger[id], yg = S.best.bar[id];
+      const cell = (v, you, win) => `<td class="num${win ? ' win' : ''}">${v}${you != null ? `<small>you: ${you}</small>` : ''}</td>`;
+      return `<tr><td>${label}</td>${cell(b, yb, b < g)}${cell(g, yg, g < b)}</tr>`;
+    }).join('');
+    $('#results').innerHTML = `<thead><tr><th>Job</th><th>Burger</th><th>Glass bar</th></tr></thead><tbody>${rows}</tbody>`;
+  }
+  $('#tasks').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-t]'); if (!b) return;
+    S.goal = b.dataset.t; S.taps = 0; S.screen = 'home'; S.title = 'Home';
+    phone.classList.remove('menu-open', 'sheet-open'); paint(); syncTasks();
+    $('#status').innerHTML = `Reach <b>${taskName()}</b> from the home page. Taps so far: <b>0</b>`;
+  });
+  const radios = (sel, key) => {
+    const items = [...$(sel).querySelectorAll('button')];
+    const set = (v) => { S[key] = v; items.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === v))); S.goal = null; S.taps = 0; S.screen = 'home'; S.title = 'Home'; $('#status').textContent = 'Pick a job, then reach it with the navigation in the phone.'; build(); syncTasks(); results(); };
+    items.forEach((b, i) => { b.addEventListener('click', () => set(b.dataset.v)); b.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const k = (i + (e.key === 'ArrowRight' ? 1 : items.length - 1)) % items.length; items[k].focus(); set(items[k].dataset.v); e.preventDefault(); } }); });
+  };
+  radios('#pattern', 'pattern'); radios('#aud', 'aud');
+  build(); syncTasks(); results();
+})();
+</script>
