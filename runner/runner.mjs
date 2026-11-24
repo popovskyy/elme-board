@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Runner on Roman's PC: polls the board, runs Claude or Cursor one ticket at a time,
-// and merges a ticket branch into main when Roman presses Done (mergeRequested).
+// and merges a ticket branch into the base branch (production) when Roman presses Done (mergeRequested).
 // Outbound HTTPS only. Agents still must not merge/push/Done themselves.
 import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
@@ -13,6 +13,12 @@ loadEnv(new URL('../.env.local', import.meta.url));
 loadEnv(new URL('../.env', import.meta.url));
 const BASE = (process.env.BOARD_URL || 'http://127.0.0.1:4400').replace(/\/$/, '');
 const REPO = process.env.REPO_DIR || '/home/romanod/Documents/BartGroup/elme-hyva';
+// Every ticket branch is cut from, QA-tested on top of, and merged into BASE_BRANCH, kept fresh from BASE_REMOTE.
+// The company repo's `production` is the base; the old local `main` is an archive of the pre-squash history.
+const BASE_BRANCH = process.env.BASE_BRANCH || 'production';
+const BASE_REMOTE = process.env.BASE_REMOTE || 'origin';
+// Pushing the base branch to the company repo stays a manual step unless PUSH_ON_MERGE=1.
+const PUSH_ON_MERGE = process.env.PUSH_ON_MERGE === '1';
 const ROLES = { fe: 'fe-engineer', be: 'be-engineer', qa: 'qa-engineer', idea: 'idea-designer', seo: 'seo-engineer' };
 const POLL_MS = 15_000;
 const BUSY_POLL_MS = 5_000;
@@ -64,7 +70,7 @@ loop();
 async function loop() {
   try {
     if (!busy) {
-      // Done → merge into main first (Roman pressed Done on the phone).
+      // Done → merge into the base branch first (Roman pressed Done on the phone).
       if (await mergeNext()) { /* merged one */ }
       else {
         // One queue across both tools, in the order the board shows (Run next first, then oldest).
@@ -101,33 +107,29 @@ async function loop() {
 async function mergeNext() {
   const { tickets } = await api('/api/runner/merge'); // only done + mergeRequested rows, not the whole board
   const pending = (tickets || [])
-    .filter((t) => t.branch && t.branch !== 'main')
+    .filter((t) => t.branch && t.branch !== 'main' && t.branch !== BASE_BRANCH)
     .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
   if (!pending.length) return false;
   const t = pending[0];
   busy = { ticketId: t.id, merging: true };
-  console.log(`runner: merging ${t.id} branch ${t.branch} → main`);
+  console.log(`runner: merging ${t.id} branch ${t.branch} → ${BASE_BRANCH}`);
   try {
     if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
       throw new Error('Working tree has uncommitted changes. Commit or stash, then press Done again (or set mergeRequested).');
     }
-    const hasOrigin = hasRemote('origin');
-    if (hasOrigin) {
-      try { git(['fetch', 'origin']); } catch { /* offline ok */ }
-    }
-    git(['checkout', 'main']);
-    if (hasOrigin) {
-      try { git(['pull', '--ff-only', 'origin', 'main']); } catch { /* diverge / offline */ }
-    }
+    freshBase();
+    git(['checkout', BASE_BRANCH]);
     if (!existsBranch(t.branch)) throw new Error(`Branch \`${t.branch}\` not found on the PC.`);
+    // A branch with no common history would drag the whole old history into the base branch and, on push, into the company repo.
+    if (!relatedToBase(t.branch)) throw new Error(rebaseHint(t.branch));
     const msg = `Merge ${t.id}: ${t.title}`;
     git(['merge', '--no-ff', '-m', msg, t.branch]);
     refreshMagento();
     archiveHandoff(t.id);
     let pushed = false;
-    if (hasOrigin) {
+    if (PUSH_ON_MERGE && hasRemote(BASE_REMOTE)) {
       try {
-        git(['push', 'origin', 'main']);
+        git(['push', BASE_REMOTE, BASE_BRANCH]);
         pushed = true;
       } catch (e) {
         warn(`merge ok locally, push failed: ${e.message || e}`);
@@ -140,20 +142,20 @@ async function mergeNext() {
     });
     await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text',
       pushed
-        ? `Merged \`${t.branch}\` into \`main\` and pushed origin/main.`
-        : `Merged \`${t.branch}\` into \`main\` locally. Push to origin failed — push manually if needed.`,
+        ? `Merged \`${t.branch}\` into \`${BASE_BRANCH}\` and pushed ${BASE_REMOTE}/${BASE_BRANCH}.`
+        : `Merged \`${t.branch}\` into \`${BASE_BRANCH}\` locally. ${PUSH_ON_MERGE ? 'The push failed' : 'Auto-push is off'}: push \`${BASE_BRANCH}\` to ${BASE_REMOTE} yourself when it should reach the company repo.`,
     ]);
     console.log(`runner: merged ${t.id}`);
   } catch (e) {
     const err = String(e.message || e).slice(0, 500);
     warn(`merge ${t.id} failed: ${err}`);
     try {
-      // Leave repo on main if possible; abort merge if stuck mid-merge.
+      // Leave repo on the base branch if possible; abort merge if stuck mid-merge.
       try { git(['merge', '--abort']); } catch { /* not merging */ }
-      try { git(['checkout', 'main']); } catch { /* ignore */ }
+      try { git(['checkout', BASE_BRANCH]); } catch { /* ignore */ }
       await patchTicket(t, { mergeRequested: false, mergeError: err, mergedAt: null });
       await cli(['log', t.id, '--who', 'watcher', '--kind', 'note', '--text',
-        `Merge into main failed: ${err}\n\nFix the repo, then reopen Review → Done to retry.`,
+        `Merge into ${BASE_BRANCH} failed: ${err}\n\nFix the repo, then reopen Review → Done to retry.`,
       ]);
     } catch (e2) { warn(e2); }
   } finally {
@@ -185,27 +187,33 @@ async function startInner(t, runner) {
   const role = t.holder;
   let branch = t.branch;
   let conflicts = [];
+  freshBase(); // throws (the ticket is blocked with the reason) when local and remote base have diverged
   if (role === 'fe' || role === 'be') {
     branch ||= `${t.id.toLowerCase()}-${slug(t.title)}`;
     if (t.resetBranch && existsBranch(branch)) {
-      // Roman chose "Start over from main": keep the old work under another name, cut a fresh branch.
+      // Roman chose "Start over from the base branch": keep the old work under another name, cut a fresh branch.
       const keep = `${branch}-old-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`;
-      git(['checkout', 'main']);
+      git(['checkout', BASE_BRANCH]);
       git(['branch', '-m', branch, keep]);
-      await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text', `Started over from \`main\`. The previous work is kept in branch \`${keep}\`.`]).catch(warn);
+      await cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text', `Started over from \`${BASE_BRANCH}\`. The previous work is kept in branch \`${keep}\`.`]).catch(warn);
     }
     const exists = existsBranch(branch);
-    git(exists ? ['checkout', branch] : ['checkout', '-b', branch, 'main']);
-    // Keep the ticket branch on top of main (dependencies merged after the branch was cut, e.g. FE-01 under FE-02).
-    if (exists && !isAncestor('main', branch)) {
-      try { git(['merge', '--no-edit', '-m', `Merge main into ${branch}`, 'main']); }
+    git(exists ? ['checkout', branch] : ['checkout', '-b', branch, BASE_BRANCH]);
+    if (exists && !relatedToBase(branch)) {
+      git(['checkout', BASE_BRANCH]);
+      await cli(['block', t.id, '--who', 'watcher', '--code', 'conflict', '--question', rebaseHint(branch)]);
+      return;
+    }
+    // Keep the ticket branch on top of the base branch (dependencies merged after the branch was cut, e.g. FE-01 under FE-02).
+    if (exists && !isAncestor(BASE_BRANCH, branch)) {
+      try { git(['merge', '--no-edit', '-m', `Merge ${BASE_BRANCH} into ${branch}`, BASE_BRANCH]); }
       catch {
         conflicts = git(['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean);
         if (!t.resolveConflict) {
           try { git(['merge', '--abort']); } catch { /* not merging */ }
           await cli(['block', t.id, '--who', 'watcher', '--code', 'conflict', '--question',
-            `\`main\` conflicts with \`${branch}\` in: ${conflicts.map((f) => `\`${f}\``).join(', ') || 'several files'}.\n\n` +
-            'Choose on this ticket: **Start over from main** (the old branch is kept under a new name) or **Agent resolves the conflict**.']);
+            `\`${BASE_BRANCH}\` conflicts with \`${branch}\` in: ${conflicts.map((f) => `\`${f}\``).join(', ') || 'several files'}.\n\n` +
+            'Choose on this ticket: **Start over from the base branch** (the old branch is kept under a new name) or **Agent resolves the conflict**.']);
           return;
         }
         // Roman chose "Agent resolves the conflict": leave the merge open for the agent.
@@ -215,23 +223,28 @@ async function startInner(t, runner) {
       await api(`/api/tickets/${t.id}`, { method: 'PATCH', body: { patch: { resetBranch: false, resolveConflict: false } } }).catch(warn);
     }
   } else if (branch) {
-    // QA / review roles test the branch as it would land: on top of today's main. Without this the
-    // site ran a weeks-old branch (old home page, old PLP banner, 500s against main's DB).
+    // QA / review roles test the branch as it would land: on top of today's base branch. Without this the
+    // site ran a weeks-old branch (old home page, old PLP banner, 500s against the base DB).
     git(['checkout', branch]);
-    if (existsBranch('main') && !isAncestor('main', branch)) {
-      try { git(['merge', '--no-edit', '-m', `Merge main into ${branch}`, 'main']); }
+    if (existsBranch(BASE_BRANCH) && !relatedToBase(branch)) {
+      git(['checkout', BASE_BRANCH]);
+      await cli(['block', t.id, '--who', 'watcher', '--code', 'conflict', '--question', rebaseHint(branch)]);
+      return;
+    }
+    if (existsBranch(BASE_BRANCH) && !isAncestor(BASE_BRANCH, branch)) {
+      try { git(['merge', '--no-edit', '-m', `Merge ${BASE_BRANCH} into ${branch}`, BASE_BRANCH]); }
       catch {
         const files = git(['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean);
         try { git(['merge', '--abort']); } catch { /* not merging */ }
-        git(['checkout', 'main']);
+        git(['checkout', BASE_BRANCH]);
         await cli(['block', t.id, '--who', 'watcher', '--code', 'conflict', '--question',
-          `\`main\` conflicts with \`${branch}\` in: ${files.map((f) => `\`${f}\``).join(', ') || 'several files'}. ` +
+          `\`${BASE_BRANCH}\` conflicts with \`${branch}\` in: ${files.map((f) => `\`${f}\``).join(', ') || 'several files'}. ` +
           'QA would test a stale branch, so it did not start. Send it back to the builder with **Agent resolves the conflict**.']);
         return;
       }
     }
   } else {
-    git(['checkout', 'main']);
+    git(['checkout', BASE_BRANCH]);
   }
   refreshMagento();
   const branchArgs = (role === 'fe' || role === 'be') && branch ? ['--branch', branch] : [];
@@ -245,8 +258,9 @@ async function startInner(t, runner) {
   let prompt = buildPrompt(t, role, runner, branch, { ...board, log: { [t.id]: logDoc } });
   if ((role === 'fe' || role === 'be') && branch) prompt += resumeNote(branch);
   if (conflicts.length) {
-    prompt += `\n\n# Merge in progress (do this first)\nThe runner merged \`main\` into \`${branch}\` and these files conflict: ${conflicts.join(', ')}.\n` +
-      'Resolve them: keep main\'s version for anything outside this ticket, keep this ticket\'s work where it is the ticket\'s scope. ' +
+    prompt += `\n\n# Merge in progress (do this first)\nThe runner merged \`${BASE_BRANCH}\` into \`${branch}\` and these files conflict: ${conflicts.join(', ')}.\n` +
+      `Resolve them: keep ${BASE_BRANCH}'s version for anything outside this ticket, ` +
+      ' keep this ticket\'s work where it is the ticket\'s scope. ' +
       'Then `git add` the files and `git commit --no-edit` to finish the merge. This is the one merge you may complete; then do the ticket.';
   }
   const extra = (runner === 'claude' ? process.env.CLAUDE_FLAGS : process.env.CURSOR_FLAGS) || '';
@@ -291,7 +305,7 @@ async function startInner(t, runner) {
   const flush = setInterval(() => api(`/api/runs/${run.id}`, { method: 'PATCH', body: { lastLines: lines.slice(-40) } }).catch(warn), 5000);
   api(`/api/runs/${run.id}`, { method: 'PATCH', body: { pid: child.pid } }).catch(warn);
   cli(['log', t.id, '--who', 'watcher', '--kind', 'log', '--text',
-    `PC started \`${cmd}\` as the ${ROLES[role]} on branch \`${branch || 'main'}\`, model ${model}.`]).catch(warn);
+    `PC started \`${cmd}\` as the ${ROLES[role]} on branch \`${branch || BASE_BRANCH}\`, model ${model}.`]).catch(warn);
 
   child.on('exit', async (code, signal) => {
     clearInterval(flush);
@@ -403,7 +417,7 @@ function buildPrompt(t, role, runner, branch, board) {
   return [
     roleFile,
     `\n\n# Ticket ${t.id}: ${t.title}`,
-    `Branch: ${branch || 'main'}. Runner: ${runner}. Role: ${role}.`,
+    `Branch: ${branch || BASE_BRANCH}. Runner: ${runner}. Role: ${role}.`,
     `\nScope:\n${t.scope}\n\nRef:\n${t.ref}`,
     `\nDecisions:\n${chosen}`,
     `\nQA items (numbered from 0):\n${(t.qa || []).map((q, i) => `${i}. ${q}`).join('\n')}`,
@@ -517,19 +531,19 @@ function writeRunnerNotes(id, { runner, role, branch, lines, why, sha }) {
   mkdirSync(path.dirname(handoffPath(id, role)), { recursive: true });
   const agentPart = readHandoff(id, role).split(RUNNER_MARK)[0].trim();
   let stat = '';
-  try { if (branch && branch !== 'main' && existsBranch('main')) stat = git(['diff', '--stat=100', `main...${branch}`]).trim().split('\n').slice(-20).join('\n'); } catch { /* no diff */ }
+  try { if (branch && branch !== BASE_BRANCH && existsBranch(BASE_BRANCH)) stat = git(['diff', '--stat=100', `${BASE_BRANCH}...${branch}`]).trim().split('\n').slice(-20).join('\n'); } catch { /* no diff */ }
   const fence = (x) => '```\n' + x + '\n```';
   const notes = [
     `## Runner notes, ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
     `${NAME[runner]} ran as the ${ROLES[role]} and stopped: ${why}`,
     sha ? `Unfinished work is committed as ${sha} on \`${branch}\`.` : '',
-    stat ? `Changed against main:\n${fence(stat)}` : '',
+    stat ? `Changed against ${BASE_BRANCH}:\n${fence(stat)}` : '',
     lines?.length ? `Last agent output:\n${fence(lines.slice(-25).join('\n'))}` : '',
   ].filter(Boolean).join('\n\n');
   writeFileSync(handoffPath(id, role), `${agentPart || `# ${id} handoff\n\nThe agent did not write notes in this run.`}\n\n${RUNNER_MARK}\n${notes}\n`);
   return agentPart;
 }
-/** Merged into main: keep the notes, out of the way of a reopened ticket's next run. */
+/** Merged into the base branch: keep the notes, out of the way of a reopened ticket's next run. */
 function archiveHandoff(id) {
   for (const role of ['fe', 'qa']) {
     try {
@@ -541,10 +555,10 @@ function archiveHandoff(id) {
   }
 }
 // Builder run ended without a report: commit what it left on the ticket branch (tracked changes and
-// files the run created; .gitignore applies). Only on that branch, never on main. Returns the short sha or null.
+// files the run created; .gitignore applies). Only on that branch, never on the base branch. Returns the short sha or null.
 function checkpoint(ticketId, branch, why) {
   try {
-    if (!branch || branch === 'main') return null;
+    if (!branch || branch === 'main' || branch === BASE_BRANCH) return null;
     if (git(['rev-parse', '--abbrev-ref', 'HEAD']).trim() !== branch) return null;
     if (existsSync(path.join(REPO, '.git', 'MERGE_HEAD'))) return null; // half-done merge: preflight aborts it
     git(['add', '-u']);
@@ -560,13 +574,13 @@ function checkpoint(ticketId, branch, why) {
 // Tells the next builder (Claude or Cursor) that the branch already has work, so it continues instead of redoing it.
 function resumeNote(branch) {
   try {
-    if (!existsBranch('main') || !existsBranch(branch)) return '';
-    const commits = git(['log', '--oneline', `main..${branch}`]).trim();
+    if (!existsBranch(BASE_BRANCH) || !existsBranch(branch)) return '';
+    const commits = git(['log', '--oneline', `${BASE_BRANCH}..${branch}`]).trim();
     if (!commits) return '';
-    const stat = git(['diff', '--stat', `main...${branch}`]).trim().split('\n').slice(-25).join('\n');
+    const stat = git(['diff', '--stat', `${BASE_BRANCH}...${branch}`]).trim().split('\n').slice(-25).join('\n');
     return `\n\n# Continue the existing work (do not start over)\nBranch \`${branch}\` already has commits from an earlier run of this ticket ` +
       '(another tool or a run that hit a limit, timed out or was stopped). `WIP ... checkpoint` commits are unfinished work saved by the runner.\n' +
-      `Read them first (\`git log main..HEAD\`, \`git diff main...HEAD\`), check what the scope and QA items still need, and continue from there. ` +
+      `Read them first (\`git log ${BASE_BRANCH}..HEAD\`, \`git diff ${BASE_BRANCH}...HEAD\`), check what the scope and QA items still need, and continue from there. ` +
       'Keep the work that is right, fix what is not. Your report lists all commits of this ticket.\n\n' +
       `Commits:\n${commits.split('\n').slice(0, 30).join('\n')}\n\nFiles:\n${stat}`;
   } catch { return ''; }
@@ -574,6 +588,30 @@ function resumeNote(branch) {
 function git(args) { return execFileSync('git', args, { cwd: REPO }).toString(); }
 function untracked() { try { return new Set(git(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean)); } catch { return new Set(); } }
 function isAncestor(a, b) { try { git(['merge-base', '--is-ancestor', a, b]); return true; } catch { return false; } }
+/** A ticket branch cut before the history was squashed shares no commits with the base branch. */
+function relatedToBase(branch) { try { git(['merge-base', BASE_BRANCH, branch]); return true; } catch { return false; } }
+function rebaseHint(branch) {
+  return `Branch \`${branch}\` has no common history with \`${BASE_BRANCH}\` (it was cut before the history was squashed; the old tip is the tag \`archive/pre-squash-main\`), ` +
+    `so it cannot be merged or updated from \`${BASE_BRANCH}\`. Rebase it first: \`git rebase --onto ${BASE_BRANCH} archive/pre-squash-main ${branch}\`.`;
+}
+/**
+ * Bring the local base branch up to date with BASE_REMOTE before a branch is cut, updated or merged.
+ * Never merges or forces: a local base ahead of the remote (merges not pushed yet) is kept as it is,
+ * a base that diverged from the remote throws so the ticket is blocked with the reason.
+ */
+function freshBase() {
+  if (!hasRemote(BASE_REMOTE)) { warn(`remote \`${BASE_REMOTE}\` not found: the base branch is not refreshed`); return; }
+  try { git(['fetch', BASE_REMOTE]); } catch { return; /* offline: work from the local base */ }
+  const remoteRef = `${BASE_REMOTE}/${BASE_BRANCH}`;
+  if (!existsBranch(`refs/remotes/${remoteRef}`)) return;
+  if (!existsBranch(`refs/heads/${BASE_BRANCH}`)) { git(['branch', '--track', BASE_BRANCH, remoteRef]); return; }
+  if (isAncestor(remoteRef, BASE_BRANCH)) return; // up to date, or local is ahead
+  if (!isAncestor(BASE_BRANCH, remoteRef)) {
+    throw new Error(`Local \`${BASE_BRANCH}\` and \`${remoteRef}\` have diverged. Fix it by hand (git log ${BASE_BRANCH}..${remoteRef}), then retry.`);
+  }
+  if (git(['rev-parse', '--abbrev-ref', 'HEAD']).trim() === BASE_BRANCH) git(['merge', '--ff-only', remoteRef]);
+  else git(['branch', '-f', BASE_BRANCH, remoteRef]);
+}
 // After a branch switch: generated interceptors / extension attributes and caches belong to the old
 // code (e.g. CartExtension without a new attribute -> 500 on every logged-in page). Clear them.
 function refreshMagento() {
