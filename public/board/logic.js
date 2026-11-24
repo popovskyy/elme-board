@@ -82,8 +82,8 @@ export function reopen(ticket, holder) {
 
 export function done(ticket) {
     if (ticket.status !== 'review') throw new Error('Only a ticket in review can be done');
-    const branch = ticket.branch && ticket.branch !== 'main' ? ticket.branch : null;
-    // Runner on the PC merges `branch` into main when mergeRequested is true.
+    const branch = ticket.branch && ticket.branch !== 'main' && ticket.branch !== 'production' ? ticket.branch : null;
+    // Runner on the PC merges `branch` into production when mergeRequested is true.
     return {
         status: 'done',
         holder: null,

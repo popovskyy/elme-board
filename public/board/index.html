@@ -1372,7 +1372,7 @@ function runFactsHtml(t) {
   const runs = runsFor(t.id).slice(0, 8);
   if (!runs.length) return '';
   const dur = (r) => { const ms = (r.endedAt || Date.now()) - (r.startedAt || Date.now()); const m = Math.round(ms / 60000); return m < 1 ? '<1 min' : `${m} min`; };
-  const rows = runs.map((r) => `<li><strong>${esc(r.runner)}</strong> · ${esc(r.role)} · <span class="run-${esc(r.status)}">${esc(r.status)}</span>${r.exitCode == null || r.exitCode === '' ? '' : ` · exit ${esc(r.exitCode)}`} · ${dur(r)} · ${esc(when(r.startedAt))}<div class="by">model ${esc(r.model || 'not recorded')} · branch <code>${esc(r.branch || 'main')}</code>${r.usage ? ` · ${fmtTok(runTokens(r))} tokens · ${r.usage.turns} turns${r.usage.costUsd != null ? ` · ${fmtUsd(r.usage.costUsd)}` : ''}` : ''}</div></li>`).join('');
+  const rows = runs.map((r) => `<li><strong>${esc(r.runner)}</strong> · ${esc(r.role)} · <span class="run-${esc(r.status)}">${esc(r.status)}</span>${r.exitCode == null || r.exitCode === '' ? '' : ` · exit ${esc(r.exitCode)}`} · ${dur(r)} · ${esc(when(r.startedAt))}<div class="by">model ${esc(r.model || 'not recorded')} · branch <code>${esc(r.branch || 'production')}</code>${r.usage ? ` · ${fmtTok(runTokens(r))} tokens · ${r.usage.turns} turns${r.usage.costUsd != null ? ` · ${fmtUsd(r.usage.costUsd)}` : ''}` : ''}</div></li>`).join('');
   return `<section class="sec" data-run-facts><h4>Recent runs</h4><ul class="runs">${rows}</ul></section>`;
 }
 function changesHtml(t) {
@@ -1430,8 +1430,8 @@ function renderPanel() {
       <div class="facts">${t.archived ? pill('archived') + ' ' : ''}${pill(t.status)} ${holder(t.holder)} <span class="chip tool">${esc(runnerLabel(t))}</span> <span>${esc(t.epic)}</span> <span>${esc(t.kind)}</span>
         ${t.branch ? `<span class="mono">${esc(t.branch)}</span>` : ''}${t.qaVerdict ? `<span>QA: ${esc(t.qaVerdict)}</span>` : ''}
         ${t.ideaVerdict ? `<span class="chip ${t.ideaVerdict === 'ship' ? 'ready' : 'work'}">${ico('spark')}${t.ideaVerdict === 'ship' ? 'Ship it' : 'Push further'}</span>` : ''}
-        ${t.mergeRequested ? '<span class="chip work">Merging into main…</span>' : ''}
-        ${t.mergedAt ? '<span class="chip ready">Merged to main</span>' : ''}
+        ${t.mergeRequested ? '<span class="chip work">Merging into production…</span>' : ''}
+        ${t.mergedAt ? '<span class="chip ready">Merged to production</span>' : ''}
         ${t.qaHandoffAt ? `<span class="chip tool">Handed to QA ${esc(when(t.qaHandoffAt))}</span>` : ''}
         ${t.mergeError ? `<span class="chip" style="color:var(--warn-text)">Merge failed</span>` : ''}</div>
       ${t.archived ? '' : stepper(t)}
@@ -1509,7 +1509,7 @@ function actions(t) {
     const rerun = (label = 'Rerun') => `<button class="btn" data-act="rerun" data-h="${h}">${ico('rerun')}${label}</button>`;
     const sw = other ? `<button class="btn" data-act="switch" data-h="${h}" data-runner="${other}">${ico(other === 'cursor' ? 'cursor' : 'spark')}Run with ${otherName}</button>` : '';
     const buttons = {
-      conflict: `<button class="btn primary" data-act="fresh" data-h="${h}">${ico('rerun')}Start over from main</button><button class="btn" data-act="resolve" data-h="${h}">${ico('play')}Agent resolves the conflict</button>`,
+      conflict: `<button class="btn primary" data-act="fresh" data-h="${h}">${ico('rerun')}Start over from production</button><button class="btn" data-act="resolve" data-h="${h}">${ico('play')}Agent resolves the conflict</button>`,
       dirty: `<button class="btn primary" data-act="stash" data-h="${h}">${ico('play')}Stash the changes and run</button>${rerun('Rerun (I cleaned up)')}`,
       deps: `<button class="btn primary" data-act="skip" data-h="${h}">${ico('play')}Run anyway</button>${rerun('Rerun (deps are done)')}`,
       decisions: `<button class="btn primary" data-act="skip" data-h="${h}">${ico('play')}Run anyway</button><button class="btn" data-act="goto-decisions">${ico('list')}Open decisions</button>${rerun()}`,
@@ -1519,7 +1519,7 @@ function actions(t) {
       cancelled: `${rerun('Queue it again')}${sw}`,
     };
     const hint = {
-      conflict: 'Start over keeps the old branch under a new name and cuts a fresh one from main.',
+      conflict: 'Start over keeps the old branch under a new name and cuts a fresh one from production.',
       dirty: 'Stash keeps the changes in git stash on the PC, nothing is lost. Get them back with `git stash pop` in elme-hyva.',
       cancelled: 'The branch and its commits stay; the agent continues from them.',
       deps: 'Run anyway skips the dependency check once.',
@@ -1533,7 +1533,7 @@ function actions(t) {
   }
   if (t.status === 'review') return `${pick}<label for="note">Bug or note for the agent (needed for Back to…)</label><textarea id="note" placeholder="What is wrong, where, how to reproduce…"></textarea><div class="btns"><button class="btn done" data-act="done">${ico('check')}Done</button>${back}</div>${ideaControls(t)}`;
   if (t.status === 'done') {
-    const merge = t.mergeError ? `<div class="question"><h4>Merge into main failed</h4><div class="prose">${md(t.mergeError)}</div></div><div class="btns"><button class="btn primary" data-act="retry-merge">${ico('rerun')}Retry merge</button></div>` : '';
+    const merge = t.mergeError ? `<div class="question"><h4>Merge into production failed</h4><div class="prose">${md(t.mergeError)}</div></div><div class="btns"><button class="btn primary" data-act="retry-merge">${ico('rerun')}Retry merge</button></div>` : '';
     const dev = devHolder(t);
     const reopenBtns = (ux ? ['qa'] : ['fe', 'be', 'qa']).map((h) => `<button class="btn${h === dev ? ' primary' : ''}" data-act="reopen" data-h="${h}">${ico('back')}Back to ${HOLDER[h][0]}</button>`).join('');
     return `${merge}<div class="reopen"><h4>Something to change?</h4><label for="note">Write what to change. The agent gets this note, works on the same branch, then QA runs again.</label><textarea id="note" placeholder="What to change, where, why…"></textarea>${pick}<div class="btns">${reopenBtns}</div></div>${ideaControls(t)}`;
@@ -1601,14 +1601,14 @@ function wireActions(t) {
         if (act === 'run-next') { await db.doc(`tickets/${t.id}`).update(runNext(t, live())); toast(`${t.id}: runs next`); return; }
         if (act === 'cancel') { await cancelTicket(t); return; }
         if (act === 'restore') { await change(t, unarchive(), 'Roman restored the ticket from the archive.', 'log'); return; }
-        if (act === 'retry-merge') { await change(t, { mergeRequested: true, mergeError: null, updatedAt: Date.now() }, 'Roman asked the PC to retry the merge into main.', 'log'); return; }
+        if (act === 'retry-merge') { await change(t, { mergeRequested: true, mergeError: null, updatedAt: Date.now() }, 'Roman asked the PC to retry the merge into production.', 'log'); return; }
         if (act === 'goto-decisions') { closePanel(); document.querySelector('.tabs [data-view="decisions"]').click(); return; }
         if (['fresh', 'resolve', 'stash', 'skip', 'switch'].includes(act)) {
           const flag = { fresh: { resetBranch: true }, resolve: { resolveConflict: true }, stash: { stashFirst: true }, skip: { skipChecks: true }, switch: {} }[act];
           const useRunner = act === 'switch' ? b.dataset.runner : runner;
           if (act === 'switch') { state.pickRunner = useRunner; try { localStorage.setItem('elme-board-runner', useRunner); } catch {} }
           const msg = {
-            fresh: 'Roman chose: start over from main.', resolve: 'Roman chose: the agent resolves the merge conflict.',
+            fresh: 'Roman chose: start over from production.', resolve: 'Roman chose: the agent resolves the merge conflict.',
             stash: 'Roman chose: stash the local changes on the PC and run.', skip: 'Roman chose: run anyway (skip the dependency/decision check once).',
             switch: `Roman switched the runner to ${useRunner} and reran.`,
           }[act] + (text ? `\n\n${text}` : '');

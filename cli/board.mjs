@@ -145,14 +145,15 @@ function patchTicket(t, patch) {
 async function appendLog(tid, entry) {
   await api(`/api/log/${tid}`, { method: 'POST', body: JSON.stringify({ entry: { at: Date.now(), ...entry } }) });
 }
-// Commits and changed files of the ticket branch against main, shown on the board for review.
+// Commits and changed files of the ticket branch against the base branch (production), shown on the board for review.
 function branchChanges(branch) {
-  if (!branch || branch === 'main') return null;
+  const base = process.env.BASE_BRANCH || 'production';
+  if (!branch || branch === 'main' || branch === base) return null;
   const repo = process.env.REPO_DIR || process.cwd();
   const git = (args) => execFileSync('git', args, { cwd: repo }).toString().trim();
   try {
-    const commits = git(['log', '--oneline', '--no-merges', `main..${branch}`]).split('\n').filter(Boolean).slice(0, 40);
-    const stat = git(['diff', '--stat=100', `main...${branch}`]).split('\n').slice(-40).join('\n');
+    const commits = git(['log', '--oneline', '--no-merges', `${base}..${branch}`]).split('\n').filter(Boolean).slice(0, 40);
+    const stat = git(['diff', '--stat=100', `${base}...${branch}`]).split('\n').slice(-40).join('\n');
     return { commits, stat, at: Date.now() };
   } catch { return null; }
 }

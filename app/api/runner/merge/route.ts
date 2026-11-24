@@ -3,7 +3,7 @@ import { getStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/runner/merge → done tickets whose branch Roman asked to merge into main.
+// GET /api/runner/merge → done tickets whose branch Roman asked to merge into production.
 export async function GET(req: Request) {
   const denied = requireToken(req);
   if (denied) return denied;
