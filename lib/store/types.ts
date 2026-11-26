@@ -93,12 +93,16 @@ export type RunStat = Pick<Run, 'id' | 'ticketId' | 'runner' | 'role' | 'status'
 
 export type RunnerStatus = { lastSeenAt: number; host: string; busyWith: string | null };
 
+/** The light switch (HyperHDR strip on the PC): the page's wish and what the runner reports. See lib/lights.mjs. */
+export type Lights = { want: boolean | null; wantAt: number; actual: boolean | null; actualAt: number; appliedAt: number; error: string | null };
+
 export type Board = {
   tickets: Record<string, Ticket>;
   decisions: Record<string, Decision>;
   log: Record<string, LogDoc>;
   runs: Record<string, Run>;
   runnerStatus: RunnerStatus | null;
+  lights?: Lights;
 };
 
 export class ConflictError extends Error {
@@ -132,7 +136,11 @@ export interface Store {
   /** Changes whenever any ticket or decision is written; lets the page skip unchanged polls. */
   boardSig(): Promise<string>;
   /** Active and recently ended runs (lastLines trimmed) plus the runner heartbeat. */
-  readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>>;
+  readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus' | 'lights'>>;
+  /** The light switch: one small row, read by the runner every few seconds. */
+  getLights(): Promise<Lights>;
+  /** Merges only the given fields, so the page's wish and the runner's report never overwrite each other. */
+  patchLights(patch: Partial<Lights>): Promise<Lights>;
   /** Log entries written in [from, to) (ms), per ticket, oldest first. For the daily update. */
   logsBetween(from: number, to: number): Promise<Record<string, LogEntry[]>>;
   /** New ticket from the board; the id is the next free number for its kind (FE-60, BE-01, …). */

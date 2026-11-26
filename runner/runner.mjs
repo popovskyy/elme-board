@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { queueCompare, agentKit, kitSettings, kitPrompt, ENABLED_RUNNERS, otherRunner } from '../lib/logic.mjs';
 import { isLimit, formatLog } from './prompt.mjs';
+import { lightsTodo } from '../lib/lights.mjs';
 
 loadEnv(new URL('../.env.local', import.meta.url));
 loadEnv(new URL('../.env', import.meta.url));
@@ -21,6 +22,12 @@ const BASE_REMOTE = process.env.BASE_REMOTE || 'origin';
 const PUSH_ON_MERGE = process.env.PUSH_ON_MERGE === '1';
 const ROLES = { fe: 'fe-engineer', be: 'be-engineer', qa: 'qa-engineer', idea: 'idea-designer', seo: 'seo-engineer' };
 const POLL_MS = 15_000;
+// Light switch: the board stores the wish, this runner applies it through the local dev-dashboard (it owns the HyperHDR logic).
+// Own poll (not the ticket loop): it must work while an agent is busy for an hour. 10 s costs ~8.6k small Vercel calls a day;
+// LIGHTS_POLL_SECONDS=0 turns the feature off.
+const LIGHTS_API = (process.env.LIGHTS_API || 'http://127.0.0.1:7777').replace(/\/$/, '');
+const LIGHTS_POLL_MS = Number(process.env.LIGHTS_POLL_SECONDS ?? 10) * 1000;
+const LIGHTS_WISH_TTL_MS = 10 * 60_000; // a wish older than this is dropped, not applied hours later when the dashboard comes back
 const BUSY_POLL_MS = 5_000;
 const HEARTBEAT_MS = 30_000;
 const MAX_RUN_MS = Number(process.env.MAX_RUN_MINUTES || 90) * 60_000;
@@ -66,6 +73,7 @@ setInterval(() => api('/api/runner/heartbeat', { method: 'POST', body: { host: o
 await api('/api/runner/heartbeat', { method: 'POST', body: { host: os.hostname(), busyWith: null } }).catch(warn);
 console.log(`runner: polling ${BASE} every ${POLL_MS / 1000}s, repo ${REPO}`);
 loop();
+if (LIGHTS_POLL_MS > 0) { console.log(`runner: light switch via ${LIGHTS_API} every ${LIGHTS_POLL_MS / 1000}s`); lightsLoop(); }
 
 async function loop() {
   try {
@@ -102,6 +110,34 @@ async function loop() {
     }
   } catch (e) { warn(e); }
   setTimeout(loop, busy ? BUSY_POLL_MS : POLL_MS);
+}
+
+async function lightsLoop() {
+  try { await lightsTick(); } catch (e) { warn(e); }
+  setTimeout(lightsLoop, LIGHTS_POLL_MS);
+}
+
+// One round: read the board's wish, apply it (or just read the strip), tell the board only when something changed.
+async function lightsTick() {
+  const { lights, serverNow } = await api('/api/lights');
+  let todo = lightsTodo(lights);
+  if (todo !== null && serverNow - lights.wantAt > LIGHTS_WISH_TTL_MS) {
+    await api('/api/lights', { method: 'PATCH', body: { appliedAt: lights.wantAt, error: 'the wish was too old, not applied' } });
+    return;
+  }
+  let report;
+  try {
+    const res = await fetch(`${LIGHTS_API}/api/lights${todo === null ? '' : `/${todo ? 'on' : 'off'}`}`, { method: todo === null ? 'GET' : 'POST', signal: AbortSignal.timeout(20_000) });
+    const d = await res.json().catch(() => ({}));
+    const ok = todo === null ? typeof d.on === 'boolean' : d.ok === true;
+    report = { actual: typeof d.on === 'boolean' ? d.on : null, error: ok ? null : (d.error || 'the strip did not switch') };
+    if (todo !== null) report.appliedAt = lights.wantAt; // handled, even if it failed: the page shows the error, no retry storm
+  } catch {
+    // dev-dashboard is down: the wish stays open (until it expires) and the page learns why
+    report = { actual: null, error: 'dev-dashboard is not answering' };
+  }
+  const changed = todo !== null || report.actual !== lights.actual || report.error !== (lights.error ?? null);
+  if (changed) await api('/api/lights', { method: 'PATCH', body: report });
 }
 
 async function mergeNext() {

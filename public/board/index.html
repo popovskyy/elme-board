@@ -36,6 +36,7 @@
   <symbol id="i-eye" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></symbol>
   <symbol id="i-ask" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M6 16.5 4 20l4.2-1.2A8 8 0 1 0 6 16.5z"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16v11H4zM9 20h6M12 16v4"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7 7l10 10M17 7 7 17"/></symbol>
   <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.2 13.4 9 19 10.6 13.4 12.2 12 18l-1.4-5.8L5 10.6 10.6 9z"/></symbol>
   <symbol id="i-chart" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></symbol>
@@ -128,6 +129,15 @@ h1 span { font: 500 15px/14px var(--font); letter-spacing: .5px; }
 .pc-status .ico { width: 16px; height: 16px; }
 .pc-status.offline { border-color: color-mix(in srgb, var(--st-blocked) 50%, var(--line)); }
 .counters { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+/* Light switch: the HyperHDR strip on the PC. The runner applies the press, so the button shows a pending state until it reports. */
+.light-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--fg); background: var(--surface); font-weight: 700; font-size: 14px; white-space: nowrap; }
+.light-btn:hover:not(:disabled) { background: var(--surface-2); }
+.light-btn .ico { width: 16px; height: 16px; }
+.light-btn.on { background: color-mix(in srgb, var(--st-progress) 30%, var(--surface)); }
+.light-btn.off { color: var(--muted); }
+.light-btn.warn { border-color: var(--warn-text); }
+.light-btn:disabled { opacity: .55; cursor: not-allowed; }
+@media (prefers-reduced-motion: no-preference) { .light-btn.pending .ico { animation: pulse 1.4s ease-in-out infinite; } }
 .counter { display: flex; gap: 6px; align-items: baseline; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 8px 16px; font-variant-numeric: tabular-nums; box-shadow: var(--shadow); white-space: nowrap; min-height: 40px; }
 .counter:hover { border-color: var(--accent); }
 .counters .counter[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -643,6 +653,7 @@ html.panel-open, html.panel-open body { overflow: hidden; }
     <span class="sub">Hyvä port roadmap</span>
     <div class="agents" id="agents" aria-label="Agents"></div>
     <div class="pc-status" id="pc-status" title="PC runner heartbeat"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span class="dot" aria-hidden="true"></span><span class="txt">Checking PC…</span></div>
+    <button class="light-btn" id="light" type="button" aria-pressed="false" disabled title="Light: waiting for the PC"><svg class="ico" aria-hidden="true"><use href="#i-bulb"/></svg><span class="txt">Light</span></button>
     <button class="export-btn" id="digest" type="button" aria-label="Daily update"><svg class="ico" aria-hidden="true"><use href="#i-note"/></svg><span>Update</span></button>
     <button class="export-btn" id="export" type="button" aria-label="Export for QA"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg><span>Export</span></button>
     <button class="new-ticket" id="new-ticket" type="button" aria-label="New ticket"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>New ticket</span></button>
@@ -708,7 +719,7 @@ const GROUPS = [
   ['Done', (t) => t.status === 'done', '--st-done'],
 ];
 
-const state = { tickets: new Map(), decisions: new Map(), view: 'table', group: 'plan', q: '', kind: '', epic: '', status: '', who: '', wave: 0, hideDone: true, openWaves: new Set(), focus: '', open: null, log: null, canWrite: true, runs: {}, runnerStatus: null, pickRunner: 'claude' };
+const state = { tickets: new Map(), decisions: new Map(), view: 'table', group: 'plan', q: '', kind: '', epic: '', status: '', who: '', wave: 0, hideDone: true, openWaves: new Set(), focus: '', open: null, log: null, canWrite: true, runs: {}, runnerStatus: null, lights: null, pickRunner: 'claude' };
 try { const r = localStorage.getItem('elme-board-runner'); if (r === 'claude' || r === 'cursor') state.pickRunner = r; } catch {}
 try { state.hideDone = localStorage.getItem('elme-board-hide-done') !== '0'; } catch {}
 // The overview pick (status arc, plan stage) and its folded state survive a reload.
@@ -818,6 +829,33 @@ function renderPcStatus() {
   el.querySelector('.txt').textContent = on
     ? (state.runnerStatus?.busyWith ? `PC online · ${state.runnerStatus.busyWith}` : 'PC online')
     : (q ? `PC offline · queued ${q}` : 'PC offline');
+}
+// Light switch. The press stores a wish; the PC runner applies it within ~10 s and reports `actual`; until then the button pulses.
+function lightPending(l) { return !!l && typeof l.want === 'boolean' && (l.wantAt || 0) > (l.appliedAt || 0); }
+function renderLight() {
+  const b = $('#light'); if (!b || !state.metaSeen) return;
+  const l = state.lights || {}, pending = lightPending(l), online = pcOnline();
+  b.classList.toggle('pending', pending);
+  b.classList.toggle('on', !pending && l.actual === true);
+  b.classList.toggle('off', !pending && l.actual === false);
+  b.classList.toggle('warn', !pending && !!l.error);
+  b.disabled = !online;
+  b.setAttribute('aria-pressed', String(!pending && l.actual === true));
+  b.querySelector('.txt').textContent = pending ? 'Light …' : l.actual === true ? 'Light on' : l.actual === false ? 'Light off' : 'Light';
+  b.title = !online ? 'Light: the PC is offline, nothing can switch it' : l.error ? `Light: ${l.error}` : pending ? 'Light: waiting for the PC to switch it' : 'Light: the LED strip on the PC';
+}
+let lightWatch = null;
+function watchLight() { // after a press: ask for the runner's report every 3 s (up to a minute) instead of waiting for the 15 s poll
+  clearInterval(lightWatch);
+  const until = Date.now() + 60_000;
+  lightWatch = setInterval(() => { if (!lightPending(state.lights) || Date.now() > until) return clearInterval(lightWatch); window.boardPoll?.(); }, 3000);
+}
+async function pressLight() {
+  const l = state.lights || {}, cur = lightPending(l) ? l.want : l.actual !== false, next = !cur;
+  state.lights = { ...l, want: next, wantAt: Date.now() + (state.skew || 0), error: null }; // optimistic: pulses at once
+  renderLight();
+  try { await window.boardSetLights(next); watchLight(); window.boardPoll?.(); }
+  catch (e) { state.lights = l; renderLight(); toast?.(`Light: ${e.message || e}`); }
 }
 // UI choice wins over the ticket's saved runner (seed defaults everything to claude).
 function preferredRunner() {
@@ -2047,6 +2085,7 @@ document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
   try { localStorage.setItem('elme-board-view', state.view); } catch {}
   render();
 });
+$('#light').onclick = pressLight;
 $('#search').oninput = (e) => { state.q = e.target.value; render(); renderToolsCount(); };
 $('#kind').onchange = (e) => { state.kind = e.target.value; render(); renderToolsCount(); };
 $('#grouping').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; state.group = b.dataset.group; try { localStorage.setItem('elme-board-group', state.group); } catch {} render(); renderToolsCount(); };
@@ -2194,7 +2233,9 @@ window.addEventListener('board:meta', (e) => {
   state.runs = e.detail?.runs || {};
   if (e.detail?.serverNow) state.skew = e.detail.serverNow - Date.now();
   state.metaSeen = true;
+  state.lights = e.detail?.lights || null;
   renderPcStatus();
+  renderLight();
   renderAgents();
   syncQueueView();
   patchNow();

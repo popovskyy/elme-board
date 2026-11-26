@@ -1,7 +1,8 @@
 import pg from 'pg';
+import { emptyLights } from '../lights.mjs';
 import {
   buildTicket, NewTicket, nextId,
-  Board, ConflictError, Decision, LogDoc, LogEntry, NotFoundError, Run, RunnerStatus, Store, Ticket, RunStat } from './types';
+  Board, ConflictError, Decision, LogDoc, LogEntry, NotFoundError, Run, RunnerStatus, Store, Ticket, RunStat, Lights } from './types';
 
 const { Pool } = pg;
 
@@ -36,6 +37,10 @@ create table if not exists runner_status (
   last_seen_at timestamptz not null,
   host text not null,
   busy_with text
+);
+create table if not exists lights (
+  id smallint primary key default 1 check (id = 1),
+  body jsonb not null
 );
 `;
 
@@ -79,7 +84,7 @@ export class PgStore implements Store {
 
   async readLight(): Promise<Omit<Board, 'log'> & { log?: undefined }> {
     // Skip ticket_log — full logs on every 5s poll burned the Neon 5 GB transfer quota.
-    const [tickets, decisions, runs, status] = await Promise.all([
+    const [tickets, decisions, runs, status, lights] = await Promise.all([
       this.q<{ id: string; body: Ticket; version: number }>('select id, body, version from tickets'),
       this.q<{ id: string; body: Decision; version: number }>('select id, body, version from decisions'),
       this.q<{ id: string; body: Run; version: number }>(
@@ -93,8 +98,9 @@ export class PgStore implements Store {
       this.q<{ last_seen_at: Date; host: string; busy_with: string | null }>(
         'select last_seen_at, host, busy_with from runner_status where id = 1',
       ),
+      this.q<{ body: Lights }>('select body from lights where id = 1'),
     ]);
-    const board: Omit<Board, 'log'> = { tickets: {}, decisions: {}, runs: {}, runnerStatus: null };
+    const board: Omit<Board, 'log'> = { tickets: {}, decisions: {}, runs: {}, runnerStatus: null, lights: { ...emptyLights(), ...lights.rows[0]?.body } };
     for (const r of tickets.rows) board.tickets[r.id] = { ...r.body, id: r.id, version: r.version };
     for (const r of decisions.rows) board.decisions[r.id] = { ...r.body, id: r.id, version: r.version };
     for (const r of runs.rows) {
@@ -257,9 +263,25 @@ export class PgStore implements Store {
     return r.rows[0].sig;
   }
 
-  async readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus'>> {
+  async readRuntime(): Promise<Pick<Board, 'runs' | 'runnerStatus' | 'lights'>> {
     const light = await this.readLight();
-    return { runs: light.runs, runnerStatus: light.runnerStatus };
+    return { runs: light.runs, runnerStatus: light.runnerStatus, lights: light.lights };
+  }
+
+  async getLights(): Promise<Lights> {
+    const r = await this.q<{ body: Lights }>('select body from lights where id = 1');
+    return { ...emptyLights(), ...r.rows[0]?.body };
+  }
+
+  // jsonb `||` merges only the given keys in one statement: the page's wish and the runner's report never overwrite each other.
+  async patchLights(patch: Partial<Lights>): Promise<Lights> {
+    const r = await this.q<{ body: Lights }>(
+      `insert into lights (id, body) values (1, $1::jsonb)
+       on conflict (id) do update set body = lights.body || excluded.body
+       returning body`,
+      [JSON.stringify(patch)],
+    );
+    return { ...emptyLights(), ...r.rows[0].body };
   }
 
   async runStats(since: number): Promise<RunStat[]> {

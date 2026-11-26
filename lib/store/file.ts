@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { buildTicket, NewTicket, nextId, RunStat, Board, ConflictError, Decision, LogDoc, LogEntry, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
+import { buildTicket, NewTicket, nextId, RunStat, Board, ConflictError, Decision, LogDoc, LogEntry, Lights, NotFoundError, Run, RunnerStatus, Store, Ticket } from './types';
+import { emptyLights } from '../lights.mjs';
 
 // Local JSON store: one file, atomic writes (tmp + rename), one write at a time.
 // Only for local development; Vercel needs the Postgres store.
@@ -11,7 +12,7 @@ export class FileStore implements Store {
 
   async read(): Promise<Board> {
     const raw = JSON.parse(await fs.readFile(this.file, 'utf8'));
-    return { tickets: {}, decisions: {}, log: {}, runs: {}, runnerStatus: null, ...raw };
+    return { tickets: {}, decisions: {}, log: {}, runs: {}, runnerStatus: null, lights: emptyLights(), ...raw };
   }
 
   async readLight(): Promise<Omit<Board, 'log'> & { log?: undefined }> {
@@ -25,6 +26,7 @@ export class FileStore implements Store {
       decisions: board.decisions,
       runs,
       runnerStatus: board.runnerStatus,
+      lights: board.lights,
     };
   }
 
@@ -99,6 +101,14 @@ export class FileStore implements Store {
     });
   }
 
+  async getLights(): Promise<Lights> { return (await this.read()).lights ?? emptyLights(); }
+  patchLights(patch: Partial<Lights>) {
+    return this.write((b) => {
+      b.lights = { ...emptyLights(), ...b.lights, ...patch };
+      return b.lights;
+    });
+  }
+
   async getTicket(id: string) { return (await this.read()).tickets[id] ?? null; }
   async getRun(id: string) { return (await this.read()).runs[id] ?? null; }
   async waitingTickets(runner: string) {
@@ -114,7 +124,7 @@ export class FileStore implements Store {
   }
   async readRuntime() {
     const light = await this.readLight();
-    return { runs: light.runs, runnerStatus: light.runnerStatus };
+    return { runs: light.runs, runnerStatus: light.runnerStatus, lights: light.lights };
   }
 
   async runStats(since: number): Promise<RunStat[]> {

@@ -14,6 +14,9 @@
   window.boardRefresh = () => { last = ''; return poll(); };
   window.boardCreateTicket = (input) => api('/api/tickets', { method: 'POST', body: JSON.stringify(input) });
   window.boardStats = () => api('/api/stats');
+  // Light switch: the page stores a wish, the PC runner applies it (see lib/lights.mjs). boardPoll = one quick meta refresh.
+  window.boardSetLights = (want) => api('/api/lights', { method: 'POST', body: JSON.stringify({ want }) });
+  window.boardPoll = () => poll();
   window.boardStopRun = (runId) => api(`/api/runs/${runId}`, { method: 'PATCH', body: JSON.stringify({ stopRequested: true }) });
   const snapOf = (map) => {
     const docs = Object.values(map || {}).map((d) => ({ id: d.id, exists: true, data: () => d, metadata: {} }));
@@ -33,7 +36,7 @@
         listeners.tickets.forEach((fn) => fn(snapOf(board.tickets)));
         listeners.decisions.forEach((fn) => fn(snapOf(board.decisions)));
       }
-      window.dispatchEvent(new CustomEvent('board:meta', { detail: { runnerStatus: board.runnerStatus, runs: board.runs, serverNow: board.serverNow } }));
+      window.dispatchEvent(new CustomEvent('board:meta', { detail: { runnerStatus: board.runnerStatus, runs: board.runs, lights: board.lights, serverNow: board.serverNow } }));
     } catch (e) { /* keep polling; the page shows the last good state */ }
   }
   function ensurePolling() {
