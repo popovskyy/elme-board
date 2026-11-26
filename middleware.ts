@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { boardSecret, COOKIE, sameString, sessionValue } from './lib/session';
+import { lightsKeyMayCall } from './lib/lights.mjs';
 
 // Everything except the login screen and the app icons needs Roman's session cookie or the machine token.
 // Without this, anyone with the URL could change tickets, and the agents on the PC act on ticket text.
@@ -14,6 +15,10 @@ export async function middleware(req: NextRequest) {
   const token = process.env.BOARD_TOKEN;
   const auth = req.headers.get('authorization') || '';
   if (token && sameString(auth, `Bearer ${token}`)) return NextResponse.next();
+
+  // The calories app's light-only key (see lightsKeyMayCall): the light button, nothing else.
+  const lightsToken = process.env.LIGHTS_TOKEN;
+  if (lightsToken && lightsKeyMayCall(pathname, req.method) && sameString(auth, `Bearer ${lightsToken}`)) return NextResponse.next();
 
   const cookie = req.cookies.get(COOKIE)?.value || '';
   if (cookie && sameString(cookie, await sessionValue(secret))) return NextResponse.next();
